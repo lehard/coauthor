@@ -419,7 +419,8 @@ export function Navigator({ onNavigate }: { onNavigate: () => void }) {
         </span>
       </Link>
       <DraftSwitcher onNavigate={onNavigate} />
-      <ShareDialog />
+      {/* The window holds only the link «почитать», which the owner and a co-author manage. */}
+      {data.can.edit && <ShareDialog />}
       {notice !== null && (
         <p
           role="status"
