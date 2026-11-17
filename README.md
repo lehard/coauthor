@@ -43,7 +43,7 @@ Prefer to set it up yourself? Follow the steps below.
 
 ## Run locally
 
-You'll need Git, Docker with Compose, a DeepSeek API key, an embeddings provider key (Cloud.ru Foundation Models or GigaChat API credentials) and the choice of embedding model.
+You'll need Git, Docker with Compose, a DeepSeek API key, an embeddings provider key (Cloud.ru Foundation Models or GigaChat API credentials), the choice of embedding model and a Yandex Search API key (see [Yandex Search API](#yandex-search-api)).
 Make sure Docker is running.
 Run the commands below in a terminal.
 
@@ -591,6 +591,25 @@ in the running API container:
 `local` instead of `prod` runs the same commands on the local stand. A new plan or price is a change of the data file
 and a release; there are no limits of individual users.
 
+A search of the internet by the co-author costs 0.488 ₽ and is taken from the same limit (`[tools.web_search]` in
+`model_prices.toml`, journal `billing.tool_usage_records`). Only a search that returned results, empty ones included,
+is paid; `report` shows the number of paid searches of the period.
+
+### Yandex Search API
+
+The co-author looks up facts of the real world in the internet with the tool `web_search`
+([agno/agents/web_search.py](agno/agents/web_search.py)): one synchronous request of Yandex Search API v2 (Russian
+index, region Russia `225`, XML), 5 results with up to 5 passages each, at most 2 searches in one answer
+(openspec/specs/integrations, «Yandex Search API»). There is no other search engine and no retry: a failure of Yandex
+is a refusal the co-author tells the author about. Set it up once in the console of Yandex Cloud:
+
+1. A billing account and a folder; its id is `YANDEX_CLOUD_FOLDER_ID`.
+2. A service account in that folder with the role `search-api.webSearch.user`.
+3. An API key of that service account with the scope `yc.search-api.execute`: `YANDEX_SEARCH_API_KEY`.
+
+Both go to `.env` (on the server `/etc/authorled/authorled.env`); without them the API does not start. The default
+quota of Yandex is 1 request per second and 10 000 per hour; raise it through the support of Yandex Cloud.
+
 ### Library of sources
 
 The co-author grounds its advice on storytelling in books on drama: it searches the library by meaning and words and
@@ -766,6 +785,7 @@ add the others when you need them. Docker Compose reads `.env` for both local an
 | `GIGACHAT_CREDENTIALS` and `GIGACHAT_SCOPE` | GigaChat Embeddings-2 behind the proxy, alias `gigachat-embeddings` (required). Scope is `GIGACHAT_API_PERS` or `GIGACHAT_API_B2B`. |
 | `CLOUDRU_API_KEY` | Cloud.ru Foundation Models behind the proxy, a service account key: aliases `giga-embeddings`, `bge-m3-embeddings`, `qwen3-embeddings` (required). |
 | `EMBEDDINGS_MODEL` | Active embedding alias for the API (required, no default); see [Models](#models). |
+| `YANDEX_SEARCH_API_KEY` and `YANDEX_CLOUD_FOLDER_ID` | Search of the internet for the co-author: API key of a service account with the role `search-api.webSearch.user` and its folder of Yandex Cloud (required, see [Yandex Search API](#yandex-search-api)). |
 | `PARALLEL_API_KEY` | Optional web search key. Without it, search uses Parallel's MCP server without an API key. |
 | `AUTHENTIK_SECRET_KEY`, `AUTHENTIK_DB_PASSWORD`, `AUTHENTIK_BOOTSTRAP_EMAIL`, `AUTHENTIK_BOOTSTRAP_PASSWORD` | Authentik server secret, password of its database role, first administrator (required, see [Module auth](#module-auth)). |
 | `AUTH_FRONTEND_CLIENT_ID`, `AUTH_FRONTEND_REDIRECT_URI`, `AUTH_FRONTEND_LOGOUT_URI` | Client ID of the Authentik application (also the expected token audience), the frontend's redirect URI after sign-in and its sign-in screen after sign-out (required). |

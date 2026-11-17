@@ -2,7 +2,8 @@
 
 Billing knows nothing of Agno or of the core: the hooks of the co-author (agents/coauthor_usage.py) turn a run into
 `RunUsage` and find the user of the core; here a user is only its identifier.
-Spending of a period is the sum of `cost_rub` of the subscription's rows that started inside the period.
+Spending of a period is the sum of `cost_rub` of the subscription's rows that started inside the period: the tokens of
+usage_records and the paid tool calls of tool_usage_records.
 """
 
 import uuid
@@ -10,12 +11,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Connection, distinct, func, select
+from sqlalchemy import Connection, Table, distinct, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from billing.plans import Plan, plans, prices
 from billing.subscriptions import Subscription, current_subscription
-from billing.tables import USAGE_RUN_STATUSES, usage_records
+from billing.tables import USAGE_RUN_STATUSES, tool_usage_records, usage_records
 
 
 class NoTokens(Exception):
@@ -46,6 +47,14 @@ class ModelUsage:
 
 
 @dataclass(frozen=True)
+class ToolUsage:
+    """Paid calls of one tool in a run (a search that returned results, empty ones included)."""
+
+    tool: str
+    calls: int
+
+
+@dataclass(frozen=True)
 class RunUsage:
     run_id: str
     session_id: str
@@ -53,6 +62,8 @@ class RunUsage:
     status: str
     occurred_at: datetime
     models: tuple[ModelUsage, ...]
+    # Paid tool calls of the run; an empty tuple when the run made none.
+    tools: tuple[ToolUsage, ...]
 
 
 @dataclass(frozen=True)
@@ -63,9 +74,10 @@ class Allowance:
 
 
 def record_run(connection: Connection, user_id: uuid.UUID, run: RunUsage, now: datetime) -> int:
-    """Write the run to the journal under the user's current subscription; a repeat adds nothing.
+    """Write the run to the journal under the user's current subscription, its tokens and its paid tool calls in the
+    caller's transaction; a repeat adds nothing.
 
-    Returns the number of rows written.
+    Returns the number of rows written to both journals.
     """
     if not run.models:
         raise NoTokens(f"Run {run.run_id} has no token counts")
@@ -98,7 +110,30 @@ def record_run(connection: Connection, user_id: uuid.UUID, run: RunUsage, now: d
         .on_conflict_do_nothing(index_elements=[usage_records.c.run_id, usage_records.c.model])
         .returning(usage_records.c.id)
     ).all()
-    return len(written)
+    if not run.tools:
+        return len(written)
+    tool_rows = [
+        {
+            "user_id": user_id,
+            "subscription_id": subscription.id,
+            "run_id": run.run_id,
+            "session_id": run.session_id,
+            "agent_id": run.agent_id,
+            "tool": usage.tool,
+            "run_status": run.status,
+            "calls": usage.calls,
+            "cost_rub": prices().tool(usage.tool).cost_rub(usage.calls),
+            "occurred_at": run.occurred_at,
+        }
+        for usage in run.tools
+    ]
+    written_tools = connection.execute(
+        insert(tool_usage_records)
+        .values(tool_rows)
+        .on_conflict_do_nothing(index_elements=[tool_usage_records.c.run_id, tool_usage_records.c.tool])
+        .returning(tool_usage_records.c.id)
+    ).all()
+    return len(written) + len(written_tools)
 
 
 def recorded_run_ids(connection: Connection, run_ids: list[str]) -> set[str]:
@@ -112,20 +147,31 @@ def recorded_run_ids(connection: Connection, run_ids: list[str]) -> set[str]:
     )
 
 
-def _in_period(subscription: Subscription) -> list:
+def _in_period(subscription: Subscription, table: Table = usage_records) -> list:
     return [
-        usage_records.c.subscription_id == subscription.id,
-        usage_records.c.occurred_at >= subscription.period_start,
-        usage_records.c.occurred_at < subscription.period_end,
+        table.c.subscription_id == subscription.id,
+        table.c.occurred_at >= subscription.period_start,
+        table.c.occurred_at < subscription.period_end,
     ]
 
 
+def _tools_in_period(connection: Connection, subscription: Subscription) -> tuple[int, Decimal]:
+    """Paid tool calls of the period and their rubles (0 and 0 when there were none)."""
+    calls, cost = connection.execute(
+        select(
+            func.coalesce(func.sum(tool_usage_records.c.calls), 0),
+            func.coalesce(func.sum(tool_usage_records.c.cost_rub), 0),
+        ).where(*_in_period(subscription, tool_usage_records))
+    ).one()
+    return int(calls), Decimal(cost)
+
+
 def period_spend(connection: Connection, subscription: Subscription) -> Decimal:
-    """Rubles spent in the current period of the subscription (0 when nothing was spent)."""
+    """Rubles spent in the current period of the subscription, tokens and paid tool calls (0 when nothing was spent)."""
     spent = connection.execute(
         select(func.coalesce(func.sum(usage_records.c.cost_rub), 0)).where(*_in_period(subscription))
     ).scalar_one()
-    return Decimal(spent)
+    return Decimal(spent) + _tools_in_period(connection, subscription)[1]
 
 
 def check_limit(connection: Connection, user_id: uuid.UUID, now: datetime) -> Allowance:
@@ -168,6 +214,8 @@ class ReportRow:
     input_tokens: int
     cache_read_tokens: int
     output_tokens: int
+    # Paid tool calls of the period (the co-author's searches of the internet).
+    paid_tool_calls: int
     spent_rub: Decimal
     limit_rub: Decimal
     remaining_rub: Decimal
@@ -194,7 +242,8 @@ def report(connection: Connection, user_ids: list[uuid.UUID], now: datetime) -> 
                 func.sum(usage_records.c.provider_cost_usd),
             ).where(*_in_period(subscription))
         ).one()
-        spent = Decimal(totals[4])
+        tool_calls, tool_cost = _tools_in_period(connection, subscription)
+        spent = Decimal(totals[4]) + tool_cost
         rows.append(
             ReportRow(
                 user_id=user_id,
@@ -205,6 +254,7 @@ def report(connection: Connection, user_ids: list[uuid.UUID], now: datetime) -> 
                 input_tokens=int(totals[1]),
                 cache_read_tokens=int(totals[2]),
                 output_tokens=int(totals[3]),
+                paid_tool_calls=tool_calls,
                 spent_rub=spent,
                 limit_rub=plan.limit_rub,
                 remaining_rub=plan.limit_rub - spent,

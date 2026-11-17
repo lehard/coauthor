@@ -12,12 +12,15 @@ from agno.agent import Agent
 from agno.exceptions import InputCheckError, OutputCheckError
 from agno.metrics import ModelMetrics, RunMetrics
 from agno.models.deepseek import DeepSeek
+from agno.models.response import ToolExecution
 from agno.run import RunContext
 from agno.run.agent import RunOutput
 from agno.run.base import RunStatus
 from agno.session import AgentSession
 from sqlalchemy import Connection, Engine, delete, insert, select, update
 
+from agents import web_search
+from agents.coauthor_tools import WEB_SEARCH_FAILED, WEB_SEARCH_LIMIT
 from agents.coauthor_usage import (
     CHECK_FAILED,
     LIMIT_REACHED,
@@ -26,9 +29,10 @@ from agents.coauthor_usage import (
     check_usage_limit,
     limit_message,
     record_usage,
+    run_usage,
 )
 from billing.subscriptions import Subscription, SubscriptionEnded, start_subscription
-from billing.tables import subscriptions, usage_records
+from billing.tables import subscriptions, tool_usage_records, usage_records
 from billing.usage import ModelUsage, RunUsage, record_run
 from core.tables import user_settings, users
 
@@ -56,6 +60,7 @@ def author(engine: Engine) -> Iterator[Callable[[], str]]:
     with engine.begin() as connection:
         ids = select(users.c.id).where(users.c.auth_subject.in_(made)).scalar_subquery()
         connection.execute(delete(usage_records).where(usage_records.c.user_id.in_(ids)))
+        connection.execute(delete(tool_usage_records).where(tool_usage_records.c.user_id.in_(ids)))
         connection.execute(delete(subscriptions).where(subscriptions.c.user_id.in_(ids)))
         connection.execute(delete(user_settings).where(user_settings.c.user_id.in_(ids)))
         connection.execute(delete(users).where(users.c.auth_subject.in_(made)))
@@ -158,7 +163,13 @@ def test_pre_hook_refuses_over_the_limit(engine: Engine, author: Callable[[], st
     subject = author()
     now = datetime.now(UTC)
     big = RunUsage(
-        "r-big-" + subject, SESSION, "coauthor", "completed", now, (ModelUsage("deepseek-fast", 0, 0, 5_000_000, None),)
+        "r-big-" + subject,
+        SESSION,
+        "coauthor",
+        "completed",
+        now,
+        (ModelUsage("deepseek-fast", 0, 0, 5_000_000, None),),
+        (),
     )
     with engine.begin() as connection:
         record_run(connection, _user(connection, subject), big, now)
@@ -209,6 +220,7 @@ def test_agno_refuses_the_run_before_the_model(engine: Engine, author: Callable[
         "completed",
         now,
         (ModelUsage("deepseek-fast", 0, 0, 5_000_000, None),),
+        (),
     )
     with engine.begin() as connection:
         record_run(connection, _user(connection, subject), big, now)
@@ -283,3 +295,73 @@ def test_run_with_a_pause_is_one_row(engine: Engine, author: Callable[[], str]) 
     record_usage(continued, _context(subject, run_id))
     (row,) = _journal(engine, subject)
     assert (row.run_id, row.input_tokens, row.cache_read_tokens, row.output_tokens) == (run_id, 1_500, 200, 150)
+
+
+# --- paid searches of the internet (billing/subscriptions, «Журнал расхода соавтора»)
+
+
+def _search(result: str) -> ToolExecution:
+    return ToolExecution(
+        tool_call_id=str(uuid.uuid4()), tool_name="web_search", tool_args={"query": "q"}, result=result
+    )
+
+
+FOUND = f"{web_search.FOUND_HEADER} «киоск»:\n\n1. Киоски\nhttps://example.ru"
+NOTHING = f"{web_search.NOTHING_FOUND} «киоск»; не выдавай сведения по памяти за найденные."
+
+
+def _tool_journal(engine: Engine, subject: str) -> list[Any]:
+    with engine.connect() as connection:
+        ids = select(users.c.id).where(users.c.auth_subject == subject).scalar_subquery()
+        return list(connection.execute(select(tool_usage_records).where(tool_usage_records.c.user_id.in_(ids))).all())
+
+
+def test_paid_searches_are_results_not_refusals() -> None:
+    output = _output("s1", "r1")
+    output.tools = [
+        _search(FOUND),
+        _search(NOTHING),
+        _search(WEB_SEARCH_LIMIT),
+        _search(WEB_SEARCH_FAILED),
+        _search("Отказ: пустой запрос к поиску."),
+        ToolExecution(tool_name="search_story", result=FOUND),
+        ToolExecution(tool_name="web_search", result=None),
+    ]
+    usage = run_usage(output, "completed")
+    assert usage is not None
+    assert [(tool.tool, tool.calls) for tool in usage.tools] == [("web_search", 2)]
+
+
+def test_run_without_searches_has_no_paid_tools() -> None:
+    usage = run_usage(_output("s1", "r1"), "completed")
+    assert usage is not None and usage.tools == ()
+
+
+def test_post_hook_records_paid_searches(engine: Engine, author: Callable[[], str]) -> None:
+    subject = author()
+    output = _output(subject, f"r-{uuid.uuid4()}")
+    output.tools = [_search(FOUND), _search(FOUND), _search(WEB_SEARCH_LIMIT)]
+    record_usage(output, _context(subject, output.run_id or ""))
+    record_usage(output, _context(subject, output.run_id or ""))
+    (row,) = _tool_journal(engine, subject)
+    assert (row.run_id, row.tool, row.calls, row.run_status) == (output.run_id, "web_search", 2, "completed")
+    assert str(row.cost_rub) == "0.976000"
+
+
+def test_failed_search_is_not_paid(engine: Engine, author: Callable[[], str]) -> None:
+    subject = author()
+    output = _output(subject, f"r-{uuid.uuid4()}")
+    output.tools = [_search(WEB_SEARCH_FAILED)]
+    record_usage(output, _context(subject, output.run_id or ""))
+    assert _tool_journal(engine, subject) == []
+    assert len(_journal(engine, subject)) == 1
+
+
+def test_pre_hook_writes_searches_of_a_failed_run(engine: Engine, author: Callable[[], str]) -> None:
+    subject = author()
+    failed = _output(subject, f"a-{uuid.uuid4()}", RunStatus.error)
+    failed.tools = [_search(FOUND)]
+    current = _output(subject, "current", RunStatus.running)
+    check_usage_limit(_context(subject), AgentSession(session_id=SESSION, user_id=subject, runs=[failed, current]))
+    (row,) = _tool_journal(engine, subject)
+    assert (row.run_id, row.calls, row.run_status) == (failed.run_id, 1, "error")

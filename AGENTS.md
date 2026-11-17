@@ -134,8 +134,10 @@ workflows in `.agents/skills/`; `.claude/skills` links to that directory.
   long notes are read in parts of 20 000 characters; in-process functions that call the core; every changing
   call pauses the run until the chat answers it, the author in the co-author mode `ask`, the chat itself in `auto`;
   the list is static, AgentOS 3.1.10 refuses tools built per run; the document tools type profile fields as strings
-  and list the fields of each kind from `FIELD_HINTS` in `core/fields.py`) and its hooks (`coauthor_usage.py`: the limit check before a run, the usage journal
-  after it). The co-author never deletes, trashes or decides; the screenplay text changes only by suggestions.
+  and list the fields of each kind from `FIELD_HINTS` in `core/fields.py`; besides the core, the reading tool `web_search`
+  searches the internet through Yandex Search API, `web_search.py`: at most 2 searches a run, a failure is a refusal, each
+  search that returned results is paid from the limit) and its hooks (`coauthor_usage.py`: the limit check before a run, the usage journal
+  after it, with the paid searches). The co-author never deletes, trashes or decides; the screenplay text changes only by suggestions.
   `agno/skills/<agent_id>/SKILL.md`: an agent's prompt as an Anthropic Agent Skill (`name` equals the id,
   the body is the prompt), loaded by `agents/prompts.py`; restart the API after editing it. A research brief for an outside Deep Research is no tool: the
   co-author writes it in its answer as a code block marked `research-brief`, which the chat shows as one card with copy and

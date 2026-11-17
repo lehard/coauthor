@@ -31,6 +31,10 @@ class UnknownModel(Exception):
     """The model alias has no price in the prices file."""
 
 
+class UnknownTool(Exception):
+    """The paid tool has no price in the prices file."""
+
+
 @dataclass(frozen=True)
 class Plan:
     code: str
@@ -67,6 +71,19 @@ class ModelPrice:
 
 
 @dataclass(frozen=True)
+class ToolPrice:
+    """Rubles per paid call of a tool of an agent."""
+
+    tool: str
+    call_rub: Decimal
+
+    def cost_rub(self, calls: int) -> Decimal:
+        if calls < 1:
+            raise ValueError(f"Paid calls of {self.tool} must be at least 1, got {calls}")
+        return calls * self.call_rub
+
+
+@dataclass(frozen=True)
 class Plans:
     signup: Plan
     by_code: dict[str, Plan]
@@ -84,11 +101,18 @@ class Plans:
 @dataclass(frozen=True)
 class Prices:
     by_model: dict[str, ModelPrice]
+    by_tool: dict[str, ToolPrice]
 
     def get(self, model: str) -> ModelPrice:
         price = self.by_model.get(model)
         if price is None:
             raise UnknownModel(f"Model {model!r} has no price in {PRICES_FILE.name}")
+        return price
+
+    def tool(self, tool: str) -> ToolPrice:
+        price = self.by_tool.get(tool)
+        if price is None:
+            raise UnknownTool(f"Tool {tool!r} has no price in {PRICES_FILE.name}")
         return price
 
 
@@ -159,7 +183,7 @@ def parse_plans(data: dict[str, Any], source: str) -> Plans:
 
 
 def parse_prices(data: dict[str, Any], source: str) -> Prices:
-    top = _fields(source, data, ("models",))
+    top = _fields(source, data, ("models", "tools"))
     tables = top["models"]
     if not isinstance(tables, dict) or not tables:
         raise DataFileError(f"{source}: models must be a non-empty table")
@@ -173,7 +197,15 @@ def parse_prices(data: dict[str, Any], source: str) -> Prices:
             cache_read_rub=_rubles(f"{where}.cache_read_rub", fields["cache_read_rub"]),
             output_rub=_rubles(f"{where}.output_rub", fields["output_rub"]),
         )
-    return Prices(by_model=by_model)
+    tools = top["tools"]
+    if not isinstance(tools, dict) or not tools:
+        raise DataFileError(f"{source}: tools must be a non-empty table")
+    by_tool: dict[str, ToolPrice] = {}
+    for tool, table in tools.items():
+        where = f"{source}: tools.{tool}"
+        fields = _fields(where, table, ("call_rub",))
+        by_tool[tool] = ToolPrice(tool=tool, call_rub=_rubles(f"{where}.call_rub", fields["call_rub"]))
+    return Prices(by_model=by_model, by_tool=by_tool)
 
 
 @cache
@@ -184,5 +216,5 @@ def plans() -> Plans:
 
 @cache
 def prices() -> Prices:
-    """The model prices of the release, read once per process."""
+    """The model and tool prices of the release, read once per process."""
     return parse_prices(_read(PRICES_FILE), PRICES_FILE.name)

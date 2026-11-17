@@ -5,6 +5,7 @@ Each operation commits on its own, so these tests use fresh user identifiers ins
 the test database is recreated by every run.
 """
 
+import dataclasses
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -15,7 +16,7 @@ import pytest
 from sqlalchemy import Engine, Table, func, select, update
 
 import billing
-from billing.tables import subscriptions, usage_records
+from billing.tables import subscriptions, tool_usage_records, usage_records
 
 START = datetime(2027, 11, 7, 10, tzinfo=UTC)
 NOW = START + timedelta(days=3)
@@ -31,6 +32,7 @@ def _run(
         status="completed",
         occurred_at=occurred_at,
         models=(billing.ModelUsage(model, 10_000, 4_000, output_tokens, None),),
+        tools=(),
     )
 
 
@@ -143,3 +145,20 @@ def test_set_plan(engine: Engine) -> None:
         billing.set_plan(user_id, "pro")
     with engine.begin() as connection:
         connection.execute(update(subscriptions).where(subscriptions.c.user_id == user_id).values(plan="beta"))
+
+
+def test_record_runs_keeps_no_tokens_when_tool_calls_are_refused(engine: Engine) -> None:
+    """A paid tool without a price refuses the run: neither its tokens nor its calls are kept."""
+    user_id = uuid.uuid4()
+    billing.ensure_subscription(user_id, START)
+    run = dataclasses.replace(_run(f"tool-{user_id}"), tools=(billing.ToolUsage("web_fetch", 1),))
+    with pytest.raises(billing.UnknownTool, match="'web_fetch'"):
+        billing.record_runs(user_id, [run], NOW)
+    assert _count(engine, usage_records, user_id) == 0
+    assert _count(engine, tool_usage_records, user_id) == 0
+
+
+def test_check_tool_price() -> None:
+    assert billing.check_tool_price("web_search").call_rub == Decimal("0.488")
+    with pytest.raises(billing.UnknownTool):
+        billing.check_tool_price("web_fetch")
