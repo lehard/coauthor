@@ -198,8 +198,9 @@ def test_no_key_leaves_schema_billing(connection: Connection) -> None:
             "WHERE contype = 'f' AND connamespace = 'billing'::regnamespace"
         )
     ).all()
-    assert [(name, target) for name, target in keys] == [
-        ("fk_usage_records_subscription_id_subscriptions", "billing.subscriptions")
+    assert sorted((name, target) for name, target in keys) == [
+        ("fk_tool_usage_records_subscription_id_subscriptions", "billing.subscriptions"),
+        ("fk_usage_records_subscription_id_subscriptions", "billing.subscriptions"),
     ]
 
 

@@ -23,8 +23,9 @@ from agno.session import AgentSession
 from agno.utils.log import log_exception
 
 import billing
+from agents import web_search
 from app.auth import run_principal
-from billing import LimitReached, ModelUsage, NoTokens, RunUsage, SubscriptionEnded
+from billing import LimitReached, ModelUsage, NoTokens, RunUsage, SubscriptionEnded, ToolUsage
 from core import members
 from core.engine import get_engine
 from core.users import active_user_id
@@ -73,8 +74,19 @@ class _Totals:
     cost_usd: Decimal | None = None
 
 
+def paid_searches(run: RunOutput) -> int:
+    """Calls of web_search in the run that returned results, empty ones included; refusals start with «Отказ:»."""
+    return sum(
+        1
+        for tool in run.tools or []
+        if tool.tool_name == web_search.TOOL
+        and tool.result is not None
+        and tool.result.startswith((web_search.FOUND_HEADER, web_search.NOTHING_FOUND))
+    )
+
+
 def run_usage(run: RunOutput, status: str) -> RunUsage | None:
-    """The token counts of the run by model, or None when no model reported any."""
+    """The token counts of the run by model and its paid tool calls, or None when no model reported any tokens."""
     details = run.metrics.details if run.metrics is not None else None
     by_model: dict[str, _Totals] = {}
     for entries in (details or {}).values():
@@ -107,6 +119,7 @@ def run_usage(run: RunOutput, status: str) -> RunUsage | None:
             )
             for model, t in by_model.items()
         ),
+        tools=(ToolUsage(web_search.TOOL, searches),) if (searches := paid_searches(run)) else (),
     )
 
 

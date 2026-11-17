@@ -2,6 +2,7 @@
 соавтора», «Проверка лимита до запуска», «Смена тарифа», «Команды администратора»; openspec/specs/billing/module,
 «Таблица журнала расхода биллинга»)."""
 
+import re
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -18,13 +19,14 @@ from admin.__main__ import main as admin_main
 from admin.__main__ import print_report
 from billing.plans import UnknownModel
 from billing.subscriptions import NoSubscription, set_plan, start_subscription
-from billing.tables import subscriptions, usage_records
+from billing.tables import subscriptions, tool_usage_records, usage_records
 from billing.usage import (
     LimitReached,
     ModelUsage,
     NoTokens,
     RunNotFound,
     RunUsage,
+    ToolUsage,
     check_limit,
     period_spend,
     record_run,
@@ -77,6 +79,7 @@ def _run(
     cache_read_tokens: int = 4_000,
     output_tokens: int = 2_000,
     model: str = "deepseek-fast",
+    tools: tuple[ToolUsage, ...] = (),
 ) -> RunUsage:
     return RunUsage(
         run_id=run_id or str(uuid.uuid4()),
@@ -85,6 +88,7 @@ def _run(
         status="completed",
         occurred_at=occurred_at,
         models=(ModelUsage(model, input_tokens, cache_read_tokens, output_tokens, Decimal("0.0045")),),
+        tools=tools,
     )
 
 
@@ -107,7 +111,7 @@ def test_record_once(connection: Connection) -> None:
 
 def test_run_without_tokens(connection: Connection) -> None:
     user_id = _author(connection)
-    run = RunUsage("r1", "p:d:c", "coauthor", "completed", NOW, ())
+    run = RunUsage("r1", "p:d:c", "coauthor", "completed", NOW, (), ())
     with pytest.raises(NoTokens):
         record_run(connection, user_id, run, NOW)
 
@@ -253,4 +257,86 @@ def test_user_with_usage_cannot_drop_subscription(connection: Connection) -> Non
     user_id = _author(connection)
     record_run(connection, user_id, _run(), NOW)
     with pytest.raises(IntegrityError, match="fk_usage_records_subscription_id_subscriptions"):
+        connection.execute(subscriptions.delete().where(subscriptions.c.user_id == user_id))
+
+
+SEARCHES = (ToolUsage("web_search", 2),)
+
+
+def _tool_rows(connection: Connection, user_id: uuid.UUID) -> list[Any]:
+    return list(connection.execute(select(tool_usage_records).where(tool_usage_records.c.user_id == user_id)).all())
+
+
+def test_record_paid_searches_once(connection: Connection) -> None:
+    user_id = _author(connection)
+    run = _run("r-search", tools=SEARCHES)
+    assert record_run(connection, user_id, run, NOW) == 2
+    assert record_run(connection, user_id, run, NOW) == 0
+    (row,) = _tool_rows(connection, user_id)
+    assert (row.run_id, row.tool, row.calls, row.run_status) == ("r-search", "web_search", 2, "completed")
+    assert row.cost_rub == Decimal("0.976000")
+    assert (row.session_id, row.agent_id, row.occurred_at) == ("p:d:c", "coauthor", NOW)
+
+
+def test_run_without_searches_has_no_tool_rows(connection: Connection) -> None:
+    user_id = _author(connection)
+    record_run(connection, user_id, _run(), NOW)
+    assert _tool_rows(connection, user_id) == []
+
+
+def test_spend_of_the_period_adds_searches(connection: Connection) -> None:
+    user_id = _author(connection)
+    record_run(connection, user_id, _run(tools=SEARCHES), NOW)
+    record_run(connection, user_id, _run(occurred_at=START - timedelta(minutes=1), tools=SEARCHES), NOW)
+    allowance = check_limit(connection, user_id, NOW)
+    assert allowance.spent == Decimal("0.4224") + Decimal("0.976")
+
+
+def test_report_counts_paid_searches(connection: Connection, capsys: pytest.CaptureFixture[str]) -> None:
+    user_id = _author(connection)
+    record_run(connection, user_id, _run(tools=SEARCHES), NOW)
+    record_run(connection, user_id, _run(), NOW)
+    (row,) = report(connection, [user_id], NOW)
+    assert (row.runs, row.paid_tool_calls) == (2, 2)
+    assert row.spent_rub == Decimal("0.8448") + Decimal("0.976")
+    assert row.remaining_rub == Decimal(500) - row.spent_rub
+    print_report([("anna@example.com", row)])
+    header, line = capsys.readouterr().out.splitlines()
+    cells = dict(zip(re.split(r"\s{2,}", header), re.split(r"\s{2,}", line), strict=True))
+    assert cells["поиски"] == "2"
+
+
+def test_repeat_run_and_tool_is_refused(connection: Connection) -> None:
+    user_id = _author(connection)
+    record_run(connection, user_id, _run("r-dup-tool", tools=SEARCHES), NOW)
+    (row,) = _tool_rows(connection, user_id)
+    values = {column: getattr(row, column) for column in row._fields if column not in ("id", "created_at")}
+    with pytest.raises(IntegrityError, match="uq_tool_usage_records_run_id_tool"):
+        connection.execute(insert(tool_usage_records).values(values))
+
+
+def test_zero_tool_calls_are_refused(connection: Connection) -> None:
+    user_id = _author(connection)
+    record_run(connection, user_id, _run("r-zero", tools=SEARCHES), NOW)
+    with pytest.raises(IntegrityError, match="ck_tool_usage_records_calls_positive"):
+        connection.execute(update(tool_usage_records).where(tool_usage_records.c.run_id == "r-zero").values(calls=0))
+
+
+def test_subscription_with_tool_calls_cannot_be_dropped(connection: Connection) -> None:
+    user_id = _author(connection)
+    connection.execute(
+        insert(tool_usage_records).values(
+            user_id=user_id,
+            subscription_id=check_limit(connection, user_id, NOW).subscription.id,
+            run_id="r-only-tools",
+            session_id="p:d:c",
+            agent_id="coauthor",
+            tool="web_search",
+            run_status="completed",
+            calls=1,
+            cost_rub=Decimal("0.488"),
+            occurred_at=NOW,
+        )
+    )
+    with pytest.raises(IntegrityError, match="fk_tool_usage_records_subscription_id_subscriptions"):
         connection.execute(subscriptions.delete().where(subscriptions.c.user_id == user_id))

@@ -11,7 +11,17 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from billing.engine import get_engine
-from billing.plans import DataFileError, ModelPrice, Plan, Prices, UnknownModel, UnknownPlan, prices
+from billing.plans import (
+    DataFileError,
+    ModelPrice,
+    Plan,
+    Prices,
+    ToolPrice,
+    UnknownModel,
+    UnknownPlan,
+    UnknownTool,
+    prices,
+)
 from billing.plans import plans as _plans
 from billing.subscriptions import NoSubscription, Subscription, SubscriptionEnded
 from billing.subscriptions import current_subscription as _current_subscription
@@ -25,6 +35,7 @@ from billing.usage import (
     ReportRow,
     RunNotFound,
     RunUsage,
+    ToolUsage,
 )
 from billing.usage import check_limit as _check_limit
 from billing.usage import record_run as _record_run
@@ -47,10 +58,14 @@ __all__ = [
     "RunUsage",
     "Subscription",
     "SubscriptionEnded",
+    "ToolPrice",
+    "ToolUsage",
     "UnknownModel",
     "UnknownPlan",
+    "UnknownTool",
     "check_limit",
     "check_model_price",
+    "check_tool_price",
     "ensure_subscription",
     "prices",
     "record_runs",
@@ -74,6 +89,11 @@ def validate_data() -> None:
 def check_model_price(model: str) -> ModelPrice:
     """The price of the model; UnknownModel when the prices file has none."""
     return prices().get(model)
+
+
+def check_tool_price(tool: str) -> ToolPrice:
+    """The price of a paid tool; UnknownTool when the prices file has none."""
+    return prices().tool(tool)
 
 
 def ensure_subscription(user_id: uuid.UUID, created_at: datetime) -> Subscription | None:

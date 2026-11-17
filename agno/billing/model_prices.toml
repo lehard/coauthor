@@ -1,4 +1,5 @@
-# Цены моделей в рублях за миллион токенов (openspec/specs/billing/subscriptions, «Цены моделей как данные»).
+# Цены моделей в рублях за миллион токенов и цены платных инструментов соавтора в рублях за вызов
+# (openspec/specs/billing/subscriptions, «Цены моделей как данные»).
 # Ключ — псевдоним LiteLLM (agno/litellm/config.yaml). Без цены модели соавтора API не стартует.
 #
 #   input_rub       вход без кэша
@@ -33,3 +34,9 @@ output_rub = 1000
 input_rub = 400
 cache_read_rub = 20
 output_rub = 2000
+
+# Платные инструменты соавтора, рубли за оплачиваемый вызов (call_rub). Без цены инструмента соавтора API не стартует.
+# web_search — синхронный дневной запрос Yandex Search API: 488 ₽ за 1000 с НДС; одна дневная цена и ночью
+# (владелец, 2026-11-17): https://aistudio.yandex.ru/docs/ru/search-api/pricing.html
+[tools.web_search]
+call_rub = 0.488

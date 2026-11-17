@@ -140,6 +140,11 @@ def _undo_beta_requests(connection: Connection) -> None:
     connection.execute(text("DROP TABLE authorled.beta_requests"))
 
 
+def _undo_tool_usage(connection: Connection) -> None:
+    """Undo b0002_tool_usage_records: the journal of paid tool calls refers to the subscriptions."""
+    connection.execute(text("DROP TABLE billing.tool_usage_records"))
+
+
 def _drop_subscriptions(connection: Connection) -> None:
     """Undo 0018 down to 0009 before a test rewinds the core to an older revision.
 
@@ -156,6 +161,7 @@ def _drop_subscriptions(connection: Connection) -> None:
     _undo_coauthor_feedback(connection)
     _undo_beta_requests(connection)
     _undo_coauthor_actions(connection)
+    _undo_tool_usage(connection)
     connection.execute(text("DROP TABLE billing.usage_records, billing.subscriptions"))
     connection.execute(text("DELETE FROM billing.alembic_version"))
 
@@ -526,6 +532,7 @@ def test_billing_move_keeps_rows(engine: Engine, billing_alembic_config: Config)
     """b0001_from_core on tables of the core with rows: same identifiers in billing, nothing left in authorled."""
     with engine.begin() as connection:
         # Rewind billing to its base: the tables go back to the core with their keys to users, as 0009 made them.
+        _undo_tool_usage(connection)
         connection.execute(text("ALTER TABLE billing.subscriptions SET SCHEMA authorled"))
         connection.execute(text("ALTER TABLE billing.usage_records SET SCHEMA authorled"))
         connection.execute(text("DELETE FROM billing.alembic_version"))
@@ -643,8 +650,9 @@ def test_billing_move_needs_the_core_first(engine: Engine, billing_alembic_confi
         with pytest.raises(RuntimeError, match="authorled.subscriptions, authorled.usage_records not found"):
             command.upgrade(billing_alembic_config, "head")
     finally:
+        head = ScriptDirectory.from_config(billing_alembic_config).get_current_head()
         with engine.begin() as connection:
-            connection.execute(text("INSERT INTO billing.alembic_version (version_num) VALUES ('b0001_from_core')"))
+            connection.execute(text("INSERT INTO billing.alembic_version (version_num) VALUES (:head)"), {"head": head})
 
 
 def test_note_files_migration_keeps_notes_and_files(

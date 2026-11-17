@@ -25,7 +25,7 @@ def _run(engine: Engine, author: Any, session_id: str, agent_id: str = "coauthor
     usage = (ModelUsage("deepseek-fast", 100, 0, 10, Decimal("0.0001")),)
     with engine.begin() as connection:
         user_id = connection.execute(select(users.c.id).where(users.c.auth_subject == author.subject)).scalar_one()
-        record_run(connection, user_id, RunUsage(run_id, session_id, agent_id, "completed", now, usage), now)
+        record_run(connection, user_id, RunUsage(run_id, session_id, agent_id, "completed", now, usage, ()), now)
     return run_id
 
 

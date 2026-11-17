@@ -1,6 +1,6 @@
 """Plans and model prices as data.
 
-openspec/specs/billing/subscriptions: «Тарифы как данные», «Цены моделей как данные».
+openspec/specs/billing/subscriptions: «Тарифы как данные», «Цены моделей как данные» (and the prices of paid tools).
 """
 
 from decimal import Decimal
@@ -9,10 +9,20 @@ from typing import Any
 import pytest
 
 from app.settings import DEEPSEEK_FAST, DEEPSEEK_THINKING
-from billing.plans import DataFileError, UnknownModel, UnknownPlan, parse_plans, parse_prices, plans, prices
+from billing.plans import (
+    DataFileError,
+    UnknownModel,
+    UnknownPlan,
+    UnknownTool,
+    parse_plans,
+    parse_prices,
+    plans,
+    prices,
+)
 
 BETA = {"name": "Бета", "price_rub": 0, "period_months": 1, "limit_rub": 500, "storage_mb": 500, "purchasable": False}
 PRICE = {"input_rub": 30, "cache_read_rub": Decimal("0.6"), "output_rub": 120}
+TOOLS = {"web_search": {"call_rub": Decimal("0.488")}}
 
 
 def _plans(**changes: Any) -> dict[str, Any]:
@@ -37,12 +47,12 @@ def test_release_prices_cover_the_models() -> None:
 
 
 def test_cost() -> None:
-    price = parse_prices({"models": {"m": PRICE}}, "prices").get("m")
+    price = parse_prices({"models": {"m": PRICE}, "tools": TOOLS}, "prices").get("m")
     assert price.cost_rub(10_000, 4_000, 2_000) == Decimal("0.4224")
 
 
 def test_cost_refuses_more_cache_than_input() -> None:
-    price = parse_prices({"models": {"m": PRICE}}, "prices").get("m")
+    price = parse_prices({"models": {"m": PRICE}, "tools": TOOLS}, "prices").get("m")
     with pytest.raises(ValueError, match="exceed"):
         price.cost_rub(10, 11, 0)
 
@@ -103,7 +113,7 @@ def test_unknown_plan_and_model() -> None:
 
 def test_price_missing_field() -> None:
     with pytest.raises(DataFileError, match=r"models\.m: missing field output_rub"):
-        parse_prices({"models": {"m": {"input_rub": 1, "cache_read_rub": 1}}}, "prices.toml")
+        parse_prices({"models": {"m": {"input_rub": 1, "cache_read_rub": 1}}, "tools": TOOLS}, "prices.toml")
 
 
 def test_money_is_exact() -> None:
@@ -121,3 +131,35 @@ def test_money_is_exact() -> None:
 def test_float_is_refused(field: str) -> None:
     with pytest.raises(DataFileError, match=rf"plans\.beta\.{field} must be a number"):
         parse_plans(_plans(**{field: 500.1}), "plans.toml")
+
+
+def test_release_price_of_web_search() -> None:
+    assert prices().tool("web_search").call_rub == Decimal("0.488")
+
+
+def test_cost_of_tool_calls() -> None:
+    price = parse_prices({"models": {"m": PRICE}, "tools": TOOLS}, "prices").tool("web_search")
+    assert price.cost_rub(2) == Decimal("0.976")
+    with pytest.raises(ValueError, match="at least 1"):
+        price.cost_rub(0)
+
+
+def test_unknown_tool_is_named() -> None:
+    with pytest.raises(UnknownTool, match="'web_fetch'"):
+        prices().tool("web_fetch")
+
+
+def test_prices_without_tools_are_refused() -> None:
+    with pytest.raises(DataFileError, match="missing field tools"):
+        parse_prices({"models": {"m": PRICE}}, "prices.toml")
+
+
+def test_tool_price_with_unknown_field_is_refused() -> None:
+    tools = {"web_search": {"call_rub": 1, "night_rub": 1}}
+    with pytest.raises(DataFileError, match=r"tools\.web_search: unknown field night_rub"):
+        parse_prices({"models": {"m": PRICE}, "tools": tools}, "prices.toml")
+
+
+def test_negative_tool_price_is_refused() -> None:
+    with pytest.raises(DataFileError, match=r"tools\.web_search\.call_rub must not be negative"):
+        parse_prices({"models": {"m": PRICE}, "tools": {"web_search": {"call_rub": -1}}}, "prices.toml")

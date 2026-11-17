@@ -7,11 +7,13 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from agno.models.message import Message
 from agno.run import RunContext
 from agno.tools.function import Function
 from sqlalchemy import select
 
 from agents import coauthor_tools as tools
+from agents import web_search as yandex
 from agents.coauthor_tools import (
     CHANGING_TOOLS,
     COAUTHOR_TOOLS,
@@ -34,6 +36,7 @@ from agents.coauthor_tools import (
     suggest_edit,
     update_story_document,
     update_story_note,
+    web_search,
 )
 from app.auth import run_principal
 from core.fields import FIELD_HINTS
@@ -429,6 +432,7 @@ def test_every_change_waits_for_an_answer() -> None:
     assert {name for name, waiting in waits.items() if waiting} == {tool.__name__ for tool in CHANGING_TOOLS}
     assert waits["suggest_edit"] is False and waits["read_screenplay"] is False and waits["search_story"] is False
     assert waits["search_sources"] is False and waits["cite_source"] is False
+    assert waits["web_search"] is False
     assert len(waits) == len(READING_TOOLS) + len(CHANGING_TOOLS)
 
 
@@ -533,3 +537,105 @@ def test_search_sources_failure_is_a_refusal(authors: Any, monkeypatch: pytest.M
 
     monkeypatch.setattr(tools, "embedder", lambda: Broken())
     assert search_sources(run, "развязка") == tools.SOURCES_FAILED
+
+
+# --- search of the internet (api/agents, «Инструменты соавтора»; integrations, «Yandex Search API»)
+
+
+def _search_call(call_id: str) -> dict[str, Any]:
+    return {"id": call_id, "type": "function", "function": {"name": "web_search", "arguments": "{}"}}
+
+
+def _with_searches(run: RunContext, now: int, earlier: int = 0) -> RunContext:
+    """The live messages of the run: `now` calls of web_search in this run, `earlier` in the history."""
+    history = [Message(role="assistant", tool_calls=[_search_call(f"h{i}")], from_history=True) for i in range(earlier)]
+    current = [Message(role="assistant", tool_calls=[_search_call(f"c{i}")]) for i in range(now)]
+    run.messages = [Message(role="user", content="вопрос"), *history, *current]
+    return run
+
+
+@pytest.fixture
+def yandex_answers(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Queries that reached Yandex; it answers with one page."""
+    asked: list[str] = []
+
+    def search(query: str, client: Any) -> list[yandex.Result]:
+        asked.append(query)
+        return [yandex.Result("Киоски Москвы", "https://example.ru/kiosk", ("Киоски на ВДНХ, 1972 год.",))]
+
+    monkeypatch.setattr(yandex, "search", search)
+    return asked
+
+
+def test_web_search_gives_pages_with_addresses(authors: Any, yandex_answers: list[str]) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    run = _with_searches(_run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}"), now=1)
+    answer = web_search(run, "  табачный киоск Москва 1972 ")
+    assert answer.startswith(yandex.FOUND_HEADER)
+    assert "https://example.ru/kiosk" in answer and "Киоски на ВДНХ, 1972 год." in answer
+    assert yandex_answers == ["табачный киоск Москва 1972"]
+
+
+def test_third_search_of_a_run_is_refused_without_a_request(authors: Any, yandex_answers: list[str]) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    session = f"{project_id}:{draft_id}:{uuid.uuid4()}"
+    assert web_search(_with_searches(_run(author.subject, session), now=2), "киоск").startswith(yandex.FOUND_HEADER)
+    assert web_search(_with_searches(_run(author.subject, session), now=3), "киоск") == tools.WEB_SEARCH_LIMIT
+    assert yandex_answers == ["киоск"]
+
+
+def test_searches_of_earlier_runs_do_not_count(authors: Any, yandex_answers: list[str]) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    run = _with_searches(_run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}"), now=1, earlier=5)
+    assert web_search(run, "киоск").startswith(yandex.FOUND_HEADER)
+
+
+def test_run_without_messages_fails(authors: Any, yandex_answers: list[str]) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    run = _run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}")
+    with pytest.raises(RuntimeError, match="no messages"):
+        web_search(run, "киоск")
+    assert yandex_answers == []
+
+
+def test_web_search_of_another_story_is_refused(authors: Any, yandex_answers: list[str]) -> None:
+    owner, stranger = authors(), authors()
+    project_id, draft_id, _ = _story_with_vera(owner)
+    run = _with_searches(_run(stranger.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}"), now=1)
+    assert web_search(run, "киоск") == STORY_NOT_FOUND
+    assert web_search(_with_searches(_run(owner.subject, "no-story"), now=1), "киоск").startswith("Отказ: беседа")
+    assert yandex_answers == []
+
+
+def test_web_search_refuses_empty_and_long_queries(authors: Any, yandex_answers: list[str]) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    run = _with_searches(_run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}"), now=1)
+    assert web_search(run, "  ") == "Отказ: пустой запрос к поиску."
+    assert web_search(run, "а" * 401).startswith("Отказ: запрос длиннее 400 знаков")
+    assert yandex_answers == []
+
+
+def test_failed_yandex_is_a_refusal(authors: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failure of Yandex is a refusal, not «nothing found» (api/agents, «Сбой поиска в интернете»)."""
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    run = _with_searches(_run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}"), now=1)
+
+    def broken(query: str, client: Any) -> list[yandex.Result]:
+        raise yandex.WebSearchFailed("HTTP 401")
+
+    monkeypatch.setattr(yandex, "search", broken)
+    assert web_search(run, "киоск") == tools.WEB_SEARCH_FAILED
+
+
+def test_nothing_found_in_the_internet(authors: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    run = _with_searches(_run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}"), now=1)
+    monkeypatch.setattr(yandex, "search", lambda query, client: [])
+    assert web_search(run, "киоск").startswith(yandex.NOTHING_FOUND)

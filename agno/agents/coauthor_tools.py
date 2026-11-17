@@ -1,6 +1,7 @@
 """Tools of the co-author: it reads the draft of the conversation, proposes edits of the screenplay and, by the
 author's request, changes notes (also from a file of the conversation), documents and comments
-(openspec/specs/api/agents, «Инструменты соавтора», «Действия соавтора», «Комментарий соавтором»).
+(openspec/specs/api/agents, «Инструменты соавтора», «Действия соавтора», «Комментарий соавтором»). Besides the tools
+of the core it searches the internet through Yandex Search API (`web_search`, agents/web_search.py).
 
 The draft comes only from the conversation (session id `<projectId>:<draftId>:<uuid>`), the caller only from the run;
 access goes through the auth module and the caller's role in the story, as in the product routes: a reviewer reads,
@@ -18,10 +19,12 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
 from agno.run import RunContext
 from agno.tools.function import Function
 
 import billing
+from agents import web_search as yandex
 from app.auth import can_access_project, run_principal
 from app.settings import embedder, embeddings_model
 from core import documents as docs
@@ -37,6 +40,16 @@ log = logging.getLogger(__name__)
 
 STORY_NOT_FOUND = "Отказ: история не найдена."
 SOURCES_FAILED = "Отказ: поиск по библиотеке не удался; не ссылайся на книги библиотеки в этом ответе."
+WEB_SEARCH_FAILED = (
+    "Отказ: поиск в интернете не удался. Скажи автору, что поиск сейчас недоступен; сведения по памяти давай только "
+    "с оговоркой, что их стоит проверить, и не выдавай их за найденные."
+)
+# Requests to Yandex in one run of the co-author (openspec/specs/api/agents, «Инструменты соавтора»).
+WEB_SEARCHES_PER_RUN = 2
+WEB_SEARCH_LIMIT = (
+    f"Отказ: в одном ответе можно искать в интернете не больше {WEB_SEARCHES_PER_RUN} раз. Отвечай по уже найденному, "
+    "а чего не нашёл — с оговоркой, что это стоит проверить."
+)
 # One part of a note the co-author reads at a time: the same as the open document in the chat context
 # (web/src/screens/project/chat/docContext.ts, MAX_CHARS).
 NOTE_PART_CHARS = 20_000
@@ -618,6 +631,55 @@ def comment_on_screenplay(run_context: RunContext, scene_uid: str, quote: str, t
     return _answer(work)
 
 
+def _web_searches_of_run(run_context: RunContext) -> int:
+    """Calls of web_search the model made in this run so far, the current one included.
+
+    run_context.messages is the live list of messages of the run (Agno 3.1.10); messages of earlier runs carry
+    from_history. Parallel calls in one message all count, so three at once are all refused.
+    """
+    if not run_context.messages:
+        raise RuntimeError(f"Run {run_context.run_id} gives the tool no messages to count the searches of the run")
+    return sum(
+        1
+        for message in run_context.messages
+        if message.role == "assistant" and not message.from_history
+        for call in message.tool_calls or []
+        if call.get("function", {}).get("name") == yandex.TOOL
+    )
+
+
+def web_search(run_context: RunContext, query: str) -> str:
+    """Поиск в интернете (Яндекс): факты о реальном мире для ответа автору.
+
+    Ищи, когда для ответа нужен факт внешнего мира — быт и детали эпохи, профессия, место, техника, цены, даты,
+    фильмы и книги — и без поиска ответ получится по памяти. Не ищи здесь о самой истории (для этого
+    search_story) и о драматургии (search_sources), не ищи для задания на исследование. Не больше 2 поисков
+    в одном ответе. Возвращает до 5 страниц: заголовок, адрес и отрывки текста. Давай автору ссылки на страницы,
+    по которым сделал вывод.
+
+    Args:
+        query: короткий поисковый запрос своими словами, например «табачный киоск Москва 1972»;
+            без текста сценария, заметок, имён героев и личных данных.
+    """
+
+    def work() -> Any:
+        _draft(run_context, "read")
+        try:
+            text = yandex.check_query(query)
+        except yandex.QueryRejected as rejected:
+            raise Refusal(f"Отказ: {rejected}") from rejected
+        if _web_searches_of_run(run_context) > WEB_SEARCHES_PER_RUN:
+            raise Refusal(WEB_SEARCH_LIMIT)
+        try:
+            with httpx.Client() as client:
+                results = yandex.search(text, client)
+        except yandex.WebSearchFailed as error:
+            raise Refusal(WEB_SEARCH_FAILED) from error
+        return yandex.for_model(text, results)
+
+    return _answer(work)
+
+
 # Read and suggest: never wait for the author.
 READING_TOOLS: list[Callable[..., str]] = [
     list_story_documents,
@@ -630,6 +692,7 @@ READING_TOOLS: list[Callable[..., str]] = [
     list_story_templates,
     search_sources,
     cite_source,
+    web_search,
     suggest_edit,
 ]
 

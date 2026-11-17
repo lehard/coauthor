@@ -14,6 +14,7 @@ model is called and written to the usage journal of the core after it (agents/co
 from agno.agent import Agent
 
 import billing
+from agents import web_search
 from agents.coauthor_tools import COAUTHOR_TOOLS
 from agents.coauthor_usage import check_usage_limit, record_usage, refuse_reader
 from agents.prompts import agent_prompt
@@ -23,9 +24,12 @@ from db import get_postgres_db
 COAUTHOR_ID = "coauthor"
 
 model = default_model()
-# Startup stops when the plans file is broken or the model of the co-author has no price.
+# Startup stops when the plans file is broken, the model of the co-author or its paid search has no price, or the
+# settings of Yandex Search API are missing (openspec/specs/integrations, «Yandex Search API»).
 billing.validate_data()
 billing.check_model_price(model.id)
+billing.check_tool_price(web_search.TOOL)
+web_search.settings()
 
 
 coauthor = Agent(

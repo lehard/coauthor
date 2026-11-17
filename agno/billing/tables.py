@@ -101,3 +101,31 @@ usage_records = Table(
     Index("ix_usage_records_subscription_id_occurred_at", "subscription_id", "occurred_at"),
     Index("ix_usage_records_user_id", "user_id"),
 )
+
+# Paid calls of tools of agent runs, one row per run and tool (today the co-author's search of the internet
+# `web_search`); costs in rubles by the tool prices of billing/model_prices.toml. Spending of a period adds these rows
+# to usage_records. Identifiers only: no text of the query, no e-mail.
+tool_usage_records = Table(
+    "tool_usage_records",
+    metadata,
+    Column("id", Uuid, primary_key=True, server_default=text("gen_random_uuid()")),
+    # The user of the core (authorled.users.id), by value.
+    Column("user_id", Uuid, nullable=False),
+    Column("subscription_id", Uuid, ForeignKey(subscriptions.c.id, ondelete="RESTRICT"), nullable=False),
+    Column("run_id", Text, nullable=False),
+    Column("session_id", Text, nullable=False),
+    Column("agent_id", Text, nullable=False),
+    Column("tool", Text, nullable=False),
+    Column("run_status", Text, nullable=False),
+    Column("calls", BigInteger, nullable=False),
+    Column("cost_rub", Numeric(14, 6), nullable=False),
+    Column("occurred_at", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("run_id", "tool", name="uq_tool_usage_records_run_id_tool"),
+    CheckConstraint("run_id <> '' AND session_id <> '' AND agent_id <> '' AND tool <> ''", name="ids_not_empty"),
+    CheckConstraint("run_status IN ('completed', 'error', 'cancelled')", name="run_status_known"),
+    CheckConstraint("calls > 0", name="calls_positive"),
+    CheckConstraint("cost_rub >= 0", name="cost_not_negative"),
+    Index("ix_tool_usage_records_subscription_id_occurred_at", "subscription_id", "occurred_at"),
+    Index("ix_tool_usage_records_user_id", "user_id"),
+)
