@@ -2,12 +2,12 @@
 
 The name and description sit in the frontmatter, the body is the prompt. Agno's LocalSkills parses and
 validates the file; a missing, unreadable or invalid skill stops the import instead of leaving the agent
-without a prompt.
+without a prompt, and every refusal names the file (openspec/specs/api/agents, «Неверный заголовок навыка»).
 """
 
 from pathlib import Path
 
-from agno.skills import LocalSkills, Skill
+from agno.skills import LocalSkills, Skill, SkillValidationError
 
 from app.paths import REPO_ROOT
 
@@ -25,8 +25,12 @@ def agent_skill(agent_id: str) -> Skill:
     skill_md = path / "SKILL.md"
     if not skill_md.is_file():
         raise RuntimeError(f"Prompt of agent {agent_id!r} not found: {skill_md} does not exist")
-    # LocalSkills raises on an invalid frontmatter but skips a skill it cannot read, logging a warning.
-    skills = LocalSkills(str(path), validate=True).load()
+    # LocalSkills raises on an invalid frontmatter but skips a skill it cannot read, logging a warning. Its
+    # SkillValidationError does not name the file, so the refusal is raised again with the path.
+    try:
+        skills = LocalSkills(str(path), validate=True).load()
+    except SkillValidationError as error:
+        raise RuntimeError(f"{skill_md}: {error}") from error
     if len(skills) != 1:
         raise RuntimeError(f"Prompt of agent {agent_id!r} not loaded from {skill_md}; see the Agno warning above")
     skill = skills[0]
