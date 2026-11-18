@@ -313,23 +313,26 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .ask-answer .answer { margin-top: 8px; font-size: 18px; line-height: 28px; text-wrap: pretty; max-width: 30em; }
 .ask-answer .eg { margin-top: 12px; }
 
+/* From a tablet up the sheet and the answer stand side by side: a dot on the edge of the sheet, a line to the spine beside the answer. */
 @media (min-width: 768px) {
   .ask-tabs { flex-direction: row; flex-wrap: wrap; }
-  .ask-sheet { padding: 28px 32px; }
-}
-@media (min-width: 1024px) {
-  .ask-stage { margin-top: 40px; }
-  .ask-panel { padding-left: 0; min-height: 360px; grid-template-columns: minmax(0, 11fr) minmax(0, 10fr); column-gap: 96px; align-items: center; }
+  .ask-stage { margin-top: 32px; }
+  .ask-panel { --gap: 64px; padding-left: 0; min-height: 320px; grid-template-columns: minmax(0, 11fr) minmax(0, 10fr); column-gap: var(--gap); align-items: center; }
   #ask-1:checked ~ .ask-stage [data-q="1"], #ask-2:checked ~ .ask-stage [data-q="2"], #ask-3:checked ~ .ask-stage [data-q="3"] { display: grid; }
-  .ask-sheet { padding: 32px 40px; font-size: 16px; line-height: 24px; --lh: 24px; --ind-d: 8ch; --ind-p: 13ch; --ind-c: 18ch; }
+  .ask-sheet { padding: 24px; }
   .ask-sheet::before { display: none; }
-  .ex + .ex { margin-top: 24px; padding-top: 24px; }
   .hit::before {
-    left: calc(100% - 5px); width: 53px; border-radius: 0;
+    left: calc(100% - 5px); width: calc(var(--gap) / 2 + 5px); border-radius: 0;
     background: radial-gradient(circle at 5px 50%, var(--ai) 0 4.5px, transparent 5px), linear-gradient(var(--ai-border), var(--ai-border)) 0 50% / 100% 2px no-repeat;
   }
   .ask-answer { margin-top: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
-  .ask-answer::before { left: -48px; top: 0; bottom: 0; width: 2px; height: auto; margin: 0; border-radius: 2px; background: var(--ai-border); }
+  .ask-answer::before { left: calc(var(--gap) / -2); top: 0; bottom: 0; width: 2px; height: auto; margin: 0; border-radius: 2px; background: var(--ai-border); }
+}
+@media (min-width: 1024px) {
+  .ask-stage { margin-top: 40px; }
+  .ask-panel { --gap: 96px; min-height: 360px; }
+  .ask-sheet { padding: 32px 40px; font-size: 16px; line-height: 24px; --lh: 24px; --ind-d: 8ch; --ind-p: 13ch; --ind-c: 18ch; }
+  .ex + .ex { margin-top: 24px; padding-top: 24px; }
   .ask-answer .answer { font-size: 20px; line-height: 32px; }
 }
 
@@ -380,51 +383,62 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .plan { position: relative; display: block; width: 100%; height: auto; color: var(--foreground); }
 .plan text { font-family: var(--font-ui); stroke: none; }
 .plan .mark { font-weight: 600; font-size: 22px; text-anchor: middle; dominant-baseline: central; fill: currentColor; }
-.plan .lbl { font-size: 13px; fill: var(--muted-foreground); transition: fill 0.5s var(--ease); }
+.plan .lbl { font-size: 13px; fill: var(--muted-foreground); transition: fill 0.5s var(--ease), opacity 0.5s var(--ease); }
 .plan .line { stroke-dasharray: 100; }
 .plan .m, .plan .t { transition: opacity 0.5s var(--ease); }
 .board[data-m="a"] .m:not(.m-a), .board[data-m="a"] .t:not(.t-a),
 .board[data-m="b"] .m:not(.m-b), .board[data-m="b"] .t:not(.t-b),
 .board[data-m="c"] .m:not(.m-c), .board[data-m="c"] .t:not(.t-c) { opacity: 0.45; }
 .board[data-m="a"] .l-a, .board[data-m="b"] .l-b, .board[data-m="c"] .l-c { fill: var(--foreground); }
-/* a phone looks at one moment at a time: the plan slides along the chalk line */
-@media (max-width: 1023px) {
-  .js .floor { aspect-ratio: 320 / 224; }
-  .js .plan { transform: translateY(var(--pan, -31.5%)); transition: transform 0.9s var(--ease); }
-  .board[data-m] .m, .board[data-m] .t { opacity: 1 !important; }
+/* a phone looks at one moment at a time: the plan slides along the chalk line, the other moments are hidden */
+@media (max-width: 767px) {
+  .js .floor { aspect-ratio: 320 / 248; }
+  .js .plan { transform: translateY(var(--pan, -28.8%)); transition: transform 0.9s var(--ease); }
+  .js .board[data-m="a"] .m:not(.m-a), .js .board[data-m="a"] .t:not(.t-a), .js .board[data-m="a"] .lbl:not(.l-a),
+  .js .board[data-m="b"] .m:not(.m-b), .js .board[data-m="b"] .t:not(.t-b), .js .board[data-m="b"] .lbl:not(.l-b),
+  .js .board[data-m="c"] .m:not(.m-c), .js .board[data-m="c"] .t:not(.t-c), .js .board[data-m="c"] .lbl:not(.l-c) { opacity: 0; }
 }
 .threads { display: none; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .threads path { fill: none; stroke: var(--ai); stroke-width: 2; stroke-linecap: round; }
 .threads circle { fill: var(--ai); }
 .board-cap { margin-top: 24px !important; }
 
-@media (min-width: 1024px) {
-  .know-head { gap: 24px; }
-  .board { margin-top: 64px; grid-template-columns: minmax(0, 1fr) 372px; column-gap: 96px; row-gap: 0; align-items: start; }
+/* From a tablet up the whole floor stands beside the dialogue; the notes sit under the dialogue. */
+@media (min-width: 768px) {
+  .board { grid-template-columns: minmax(0, 1fr) 280px; grid-template-rows: auto 1fr; column-gap: 64px; row-gap: 0; align-items: start; }
   .talk { grid-column: 1; grid-row: 1; }
-  .notes { grid-column: 1; grid-row: 2; }
+  .notes { grid-column: 1; grid-row: 2; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
   .floor { grid-column: 2; grid-row: 1 / span 2; }
   .turn:first-of-type { margin-top: 16px; }
+}
+/* The thread needs every marked phrase to end its line, so the lines of the dialogue are set by hand from this width. */
+@media (min-width: 880px) {
+  .lg-br { display: inline; }
+  .js .threads { display: block; }
+}
+@media (min-width: 1024px) {
+  .know-head { gap: 24px; }
+  .board { margin-top: 64px; grid-template-columns: minmax(0, 1fr) 372px; column-gap: 96px; }
   .author-text { font-size: 30px; line-height: 40px; }
   .reply { font-size: 20px; line-height: 32px; }
   .punch { font-size: 48px; line-height: 56px; }
-  .lg-br { display: inline; }
-  .js .threads { display: block; }
-  .notes { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .notes { margin-top: 40px; }
 }
 
 /* ---------- 4. Draft ---------- */
 .draft-grid { display: grid; gap: 32px; }
 .draft-copy { display: flex; flex-direction: column; gap: 20px; }
+.draft-copy .body-lg { max-width: 40em; }
 .formats { display: flex; flex-wrap: wrap; gap: 8px; }
 .format { font-family: var(--font-script); font-size: 14px; line-height: 20px; padding: 4px 10px; border-radius: 6px; background: var(--paper); box-shadow: 0 0 0 1px var(--border); }
 .shot { position: relative; }
+.shot-pic { position: relative; }
 .shot-frame { border-radius: 16px; overflow: hidden; background: var(--panel); box-shadow: var(--shadow-paper), 0 0 0 1px var(--border); }
 .shot-frame img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: left top; }
 .shot-cap { margin-top: 12px !important; }
 .file {
   position: relative; z-index: 2; display: flex; align-items: center; gap: 12px; width: fit-content; max-width: 100%;
-  margin: 0 0 -20px 16px; padding: 12px 16px 12px 12px; border-radius: 12px; background: var(--paper);
+  margin: 0 0 -8px 16px; padding: 12px 16px 12px 12px; border-radius: 12px; background: var(--paper);
   box-shadow: var(--shadow-paper), 0 0 0 1px var(--border);
 }
 .file-name { font-weight: 500; }
@@ -435,7 +449,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 @media (min-width: 1024px) {
   .draft-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; }
   .shot { margin-right: -96px; }
-  .file { position: absolute; left: -40px; bottom: 56px; margin: 0; }
+  /* 74% of the picture is the empty part of the sidebar on the screenshot: the card covers no text there. */
+  .file { position: absolute; left: -40px; top: 74%; margin: 0; }
 }
 
 /* ---------- 5. Team ---------- */
@@ -734,7 +749,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 
       <div class="floor">
         <p class="floor-sides" aria-hidden="true"><span>сторона старшего</span><span>сторона младшего</span></p>
-        <svg class="plan" viewBox="0 0 320 600" role="img" aria-label="Пол гаража сверху. Меловая черта делит его на сторону старшего и сторону младшего. В начале братья стоят каждый на своей стороне. После ссоры ключ лежит на черте. В финале старший лежит под машиной на стороне младшего, из-под машины видна рука.">
+        <svg class="plan" viewBox="0 0 320 612" role="img" aria-label="Пол гаража сверху. Меловая черта делит его на сторону старшего и сторону младшего. В начале братья стоят каждый на своей стороне. После ссоры ключ лежит на черте. В финале старший лежит под машиной на стороне младшего, из-под машины видна рука.">
           <defs>
             <filter id="chalk" filterUnits="userSpaceOnUse" x="-20" y="-20" width="360" height="640">
               <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="n"/>
@@ -745,7 +760,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
             </filter>
           </defs>
           <g filter="url(#chalk)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path class="line" pathLength="100" d="M160 12 C156 120 164 214 160 300 S156 486 160 588" stroke-width="5.5"/>
+            <path class="line" pathLength="100" d="M160 12 C156 120 164 214 160 300 S156 492 160 600" stroke-width="5.5"/>
             <g class="m m-a">
               <circle cx="80" cy="112" r="22"/>
               <circle cx="240" cy="112" r="22"/>
@@ -822,6 +837,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
       <p class="small muted">Импорт из Fountain, FDX, STARC, DOCX и TXT.</p>
     </div>
     <figure class="shot">
+      <div class="shot-pic">
       <div class="file" aria-hidden="true">
         <svg width="32" height="40" viewBox="0 0 32 40" fill="none" aria-hidden="true"><path d="M3 1h17l9 9v27a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Z" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5"/><path d="M20 1v9h9" stroke="var(--border-strong)" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 18h18M7 23h18M7 28h11" stroke="var(--border-strong)" stroke-width="1.5" stroke-linecap="round"/></svg>
         <div>
@@ -831,6 +847,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
       </div>
       <div class="shot-frame">
         <img src="shots/workspace-1440.webp" srcset="shots/workspace-720.webp 720w, shots/workspace-1440.webp 1440w" sizes="(min-width: 1024px) 760px, 190vw" width="1440" height="900" loading="lazy" alt="Редактор Соавтора: слева документы истории и драфт, в центре текст сценария, справа чат Соавтора.">
+      </div>
       </div>
       <figcaption class="small muted shot-cap">Экран беты. Сценарий «Тихая вода» в редакторе.</figcaption>
     </figure>
@@ -921,7 +938,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 (() => {
   const site = document.querySelector(".site");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const desktop = matchMedia("(min-width: 1024px)");
+  const desktop = matchMedia("(min-width: 880px)");
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -944,8 +961,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   const board = $(".board");
   const phrases = $$(".ph", board), notes = $$(".note", board), dots = $$(".step-dot", board);
   const path = $(".threads path"), from = $(".t-from"), to = $(".t-to");
-  const TARGET = { a: 112 / 600, b: 300 / 600, c: 470 / 600 };
-  const PAN = { a: "0%", b: "-31.5%", c: "-62.7%" };
+  const TARGET = { a: 112 / 612, b: 300 / 612, c: 470 / 612 };
+  const PAN = { a: "0%", b: "-28.8%", c: "-59.5%" };
   let active = 4;
 
   function thread(animate) {
@@ -958,7 +975,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     const floor = $(".floor").getBoundingClientRect();
     const x1 = last.right - b.left + 12, y1 = last.top + last.height / 2 - b.top;
     const x2 = floor.left - b.left, y2 = floor.top - b.top + floor.height * TARGET[note.dataset.m];
-    const xg = x2 - 40, r = Math.min(14, Math.abs(y2 - y1) / 2), s = Math.sign(y2 - y1) || 1;
+    const gap = x2 - ($(".talk").getBoundingClientRect().right - b.left);
+    const xg = x2 - Math.min(40, gap - 40), r = Math.min(14, Math.abs(y2 - y1) / 2), s = Math.sign(y2 - y1) || 1;
     const d = `M${x1} ${y1} H${xg - r} Q${xg} ${y1} ${xg} ${y1 + s * r} V${y2 - s * r} Q${xg} ${y2} ${xg + r} ${y2} H${x2}`;
     path.setAttribute("d", d);
     from.style.display = to.style.display = "";
