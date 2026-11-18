@@ -1,0 +1,1001 @@
+<title>Макет лендинга Соавтора</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cousine:wght@400;700&family=Golos+Text:wght@400..900&family=Literata:opsz,wght@7..72,200..900&display=swap" rel="stylesheet">
+<style>
+/* ---------- Tokens: the names and values of web/src/design-system/tokens.css ---------- */
+:root {
+  color-scheme: light;
+  --desk: oklch(0.935 0.017 78);
+  --panel: oklch(0.972 0.011 82);
+  --paper: oklch(0.993 0.005 90);
+  --foreground: oklch(0.25 0.028 262);
+  --muted-foreground: oklch(0.47 0.02 70);
+  --muted: oklch(0.91 0.018 76);
+  --border: oklch(0.87 0.016 75);
+  --border-strong: oklch(0.6 0.016 72);
+  --primary: oklch(0.43 0.115 262);
+  --primary-hover: oklch(0.39 0.11 262);
+  --primary-foreground: oklch(0.993 0.005 90);
+  --ring: oklch(0.43 0.115 262);
+  --ai: oklch(0.48 0.13 318);
+  --ai-subtle: oklch(0.95 0.028 318);
+  --ai-border: oklch(0.8 0.07 318);
+  --destructive: oklch(0.52 0.17 12);
+  --shadow-panel: 0 1px 2px oklch(0.4 0.03 60 / 0.08), 0 6px 16px -8px oklch(0.4 0.04 60 / 0.2);
+  --shadow-paper: 0 1px 1px oklch(0.4 0.03 60 / 0.05), 0 8px 24px -6px oklch(0.4 0.04 60 / 0.16),
+    0 32px 64px -24px oklch(0.4 0.05 60 / 0.22);
+  --grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.9 0 0 0 0 0.75 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --font-ui: "Golos Text", system-ui, sans-serif;
+  --font-prose: "Literata", Georgia, serif;
+  --font-script: "Cousine", "Courier New", monospace;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Theme «Вечер у лампы» for one section: the garage. */
+.night {
+  --desk: oklch(0.175 0.012 60);
+  --panel: oklch(0.215 0.013 62);
+  --paper: oklch(0.235 0.013 68);
+  --foreground: oklch(0.91 0.022 85);
+  --muted-foreground: oklch(0.74 0.02 80);
+  --muted: oklch(0.26 0.013 66);
+  --border: oklch(0.3 0.014 65);
+  --border-strong: oklch(0.58 0.018 75);
+  --primary: oklch(0.78 0.085 255);
+  --ring: oklch(0.78 0.085 255);
+  --ai: oklch(0.79 0.1 318);
+  --ai-subtle: oklch(0.29 0.045 318);
+  --ai-border: oklch(0.5 0.08 318);
+  color-scheme: dark;
+}
+
+/* ---------- Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { margin: 0; background: var(--desk); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 50; background: var(--desk); }
+.site {
+  background: var(--desk);
+  color: var(--foreground);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  overflow-x: clip;
+}
+:where(.site) :where(p, h1, h2, h3, figure, ol, ul, blockquote) { margin: 0; }
+:where(.site) :where(ol, ul) { padding: 0; list-style: none; }
+.site a { color: inherit; }
+.site button { font: inherit; color: inherit; }
+.site :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.wrap { width: 100%; max-width: 1200px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (min-width: 640px) { .wrap { padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); } }
+
+/* Text styles on the Tailwind scale (landing-page-design, B1) with the fonts of the design system. */
+.h1, .h2, .h3 { font-family: var(--font-prose); font-weight: 600; letter-spacing: -0.015em; text-wrap: balance; }
+.h1 { font-size: 36px; line-height: 40px; }
+.h2 { font-size: 30px; line-height: 36px; }
+.h3 { font-size: 24px; line-height: 32px; }
+@media (min-width: 640px) { .h1 { font-size: 48px; line-height: 52px; } .h2 { font-size: 36px; line-height: 40px; } }
+@media (min-width: 1024px) { .h2 { font-size: 48px; line-height: 52px; } }
+@media (min-width: 1280px) { .h1 { font-size: 60px; line-height: 64px; } }
+.body-lg { font-size: 18px; line-height: 28px; text-wrap: pretty; }
+.body { font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.small { font-size: 14px; line-height: 20px; text-wrap: pretty; }
+.caption { font-size: 14px; line-height: 20px; font-weight: 500; }
+.title { font-size: 16px; line-height: 24px; font-weight: 500; }
+.muted { color: var(--muted-foreground); }
+.script { font-family: var(--font-script); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 0; border-radius: 999px; padding: 12px 24px; cursor: pointer;
+  font-size: 16px; line-height: 24px; font-weight: 600; text-decoration: none;
+  transition: background-color 0.3s var(--ease), transform 0.3s var(--ease);
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--primary); color: var(--primary-foreground) !important; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-sm { padding: 8px 16px; font-size: 14px; line-height: 20px; }
+.btn-quiet { background: transparent; color: var(--foreground); }
+.btn-quiet:hover { background: var(--muted); }
+.link { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.link:hover { text-decoration: none; }
+
+/* ---------- Header ---------- */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40; padding-top: 16px; }
+.nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border-radius: 999px; padding: 8px 8px 8px 16px;
+  background: color-mix(in oklch, oklch(0.972 0.011 82) 86%, transparent);
+  box-shadow: 0 1px 2px oklch(0.4 0.03 60 / 0.08), 0 6px 16px -8px oklch(0.4 0.04 60 / 0.2), 0 0 0 1px oklch(0.87 0.016 75);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 500; text-decoration: none; border-radius: 999px; }
+.nav-actions { position: relative; display: flex; align-items: center; gap: 4px; }
+.nav-link { padding: 8px 16px; border-radius: 999px; font-size: 14px; line-height: 20px; font-weight: 600; text-decoration: none; transition: background-color 0.3s var(--ease); }
+.nav-link:hover { background: var(--muted); }
+.js .nav-link { transition: background-color 0.3s var(--ease), transform 0.5s var(--ease); }
+.js .nav-cta { position: absolute; right: 0; top: 0; width: 124px; white-space: nowrap; opacity: 0; visibility: hidden; transform: translateX(8px); transition: opacity 0.3s var(--ease), transform 0.5s var(--ease), visibility 0.3s; }
+.js.cta-away .nav-link { transform: translateX(-128px); }
+.js.cta-away .nav-cta { opacity: 1; visibility: visible; transform: none; }
+
+/* ---------- 1. Hero ---------- */
+.hero { position: relative; overflow: clip; padding-top: 32px; }
+.hero::before { content: ""; position: absolute; inset: -120px 0 0 30%; background: radial-gradient(50% 60% at 60% 45%, oklch(0.985 0.03 85 / 0.85), transparent 100%); pointer-events: none; }
+.hero-grid { position: relative; }
+.hero-grid { display: grid; gap: 40px; }
+.hero-copy { display: flex; flex-direction: column; gap: 24px; }
+.hero-lead { max-width: 34em; }
+.hero-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.stage { position: relative; min-width: 0; }
+.ed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.ed-title { font-family: var(--font-prose); font-weight: 600; font-size: 18px; line-height: 28px; letter-spacing: -0.01em; white-space: nowrap; }
+.ed-cap { font-size: 13px; line-height: 20px; color: var(--muted-foreground); text-align: right; }
+.ed-wide { display: none; }
+@media (min-width: 640px) { .ed-wide { display: inline; } }
+.ed-bar { display: none; align-items: center; gap: 4px; height: 40px; margin-bottom: 12px; padding: 0 12px; border-radius: 999px; background: var(--panel); box-shadow: var(--shadow-panel), 0 0 0 1px var(--border); color: var(--muted-foreground); font-size: 13px; line-height: 20px; font-weight: 500; }
+.ed-bar svg { flex: none; }
+.ed-bar .sep { width: 1px; height: 16px; margin: 0 8px; background: var(--border); }
+.ed-bar .grow { flex: 1; }
+.ed-bar .count { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; color: var(--foreground); }
+.ed-bar .ic { display: grid; place-items: center; width: 28px; height: 28px; }
+.sheet {
+  position: relative; background: var(--paper); border-radius: 8px 8px 0 0; box-shadow: var(--shadow-paper);
+  padding: 24px 20px 0; font-size: 14px; line-height: 20px;
+  --ind-d: 4ch; --ind-p: 9ch; --ind-c: 14ch; --lh: 20px;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 64px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 64px), transparent);
+}
+.sc-heading { font-weight: 700; }
+.sc-action { margin-top: var(--lh) !important; }
+.sc-char { margin-top: var(--lh) !important; margin-left: var(--ind-c) !important; }
+.sc-paren { margin-left: var(--ind-p) !important; }
+.sc-dialogue { margin-left: var(--ind-d) !important; max-width: 27ch; }
+.sc-next { margin-top: calc(var(--lh) * 2) !important; }
+.sc-wide { display: none; }
+
+.lit {
+  position: relative; background: var(--ai-subtle); color: inherit; border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--ai-subtle), 0 2px 0 2px var(--ai-border);
+  transition: background-color 0.5s var(--ease), box-shadow 0.5s var(--ease);
+}
+.lit-new { display: none; }
+.echo { position: relative; text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--ai); text-decoration-thickness: 2px; text-underline-offset: 4px; transition: text-decoration-color 0.5s var(--ease); }
+
+/* the first screen only names the product: a sheet of the screenplay and the Co-author's window beside it */
+.suggest { position: relative; z-index: 2; max-width: 360px; margin-top: 12px; font-family: var(--font-ui); }
+.co-panel { padding: 12px; border-radius: 12px; background: var(--paper); box-shadow: var(--shadow-paper), 0 0 0 1px var(--ai-border); }
+.co-sees { margin-top: 4px; font-size: 13px; line-height: 20px; color: var(--muted-foreground); }
+.co-qs { display: grid; gap: 6px; margin-top: 12px; }
+.co-q {
+  display: block; padding: 6px 12px; border-radius: 8px; background: var(--panel); box-shadow: 0 0 0 1px var(--border);
+  font-size: 14px; line-height: 20px; font-weight: 500; text-decoration: none;
+  transition: background-color 0.3s var(--ease), box-shadow 0.3s var(--ease), transform 0.3s var(--ease);
+}
+.co-q:hover { background: var(--muted); box-shadow: 0 0 0 1px var(--border-strong); }
+.co-q:active { transform: scale(0.98); }
+.co-input {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 36px; margin-top: 12px; padding: 0 4px 0 12px;
+  border-radius: 999px; box-shadow: 0 0 0 1px var(--border); color: var(--muted-foreground); font-size: 14px; line-height: 20px;
+}
+.co-send { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: var(--primary-foreground); opacity: 0.55; }
+.suggest-head { display: flex; align-items: center; gap: 8px; color: var(--ai); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ai); flex: none; }
+.suggest-new { margin-top: 8px !important; padding: 6px 10px; border-radius: 6px; background: var(--ai-subtle); font-size: 16px; line-height: 24px; }
+.suggest-foot { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 12px; min-height: 36px; }
+.suggest-status { display: none; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.suggest-status .link { background: none; border: 0; padding: 0; cursor: pointer; }
+/* threads: a line with a dot ties the Co-author's words to a place in the script */
+.suggest::before {
+  content: ""; position: absolute; left: calc(var(--ind-d) + 2ch); top: -12px; height: 12px; width: 0;
+  border-left: 2px solid var(--ai); transition: opacity 0.5s var(--ease);
+}
+.echo::before {
+  content: ""; position: absolute; left: calc(14px - var(--ind-d)); top: calc(var(--lh) * -3);
+  width: calc(var(--ind-d) - 14px - 0.6ch); height: calc(var(--lh) * 3.5);
+  border-left: 2px dotted var(--ai); border-bottom: 2px dotted var(--ai); border-bottom-left-radius: 8px;
+  transition: opacity 0.5s var(--ease);
+}
+.stage[data-state="accepted"] .lit-old, .stage[data-state="rejected"] .lit-new { display: none; }
+.stage[data-state="accepted"] .lit-new { display: inline; }
+.stage:not([data-state="open"]) .lit { background: transparent; box-shadow: none; }
+.stage:not([data-state="open"]) .echo { text-decoration-color: transparent; }
+.stage:not([data-state="open"]) .echo::before, .stage:not([data-state="open"]) .suggest::before,
+.stage:not([data-state="open"]) .lit::after, .stage:not([data-state="open"]) .echo::after { opacity: 0; }
+.stage:not([data-state="open"]) .suggest-actions { display: none; }
+.stage:not([data-state="open"]) .suggest-status { display: flex; }
+.stage:not([data-state="open"]) .suggest-new { opacity: 0.55; }
+.stage[data-state="accepted"] .lit-new { animation: settle 1.2s var(--ease) both; }
+@keyframes settle { from { background: var(--ai-subtle); box-shadow: 0 0 0 2px var(--ai-subtle); } to { background: transparent; box-shadow: 0 0 0 2px transparent; } }
+
+@media (min-width: 640px) {
+  .sheet { padding: 32px 32px 0; }
+  .sc-wide { display: block; }
+}
+@media (min-width: 1024px) {
+  .hero { padding-top: 40px; }
+  .hero-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); grid-template-rows: minmax(0, 1fr); gap: 56px; height: clamp(600px, calc(100svh - 128px), 720px); }
+  .hero-copy { justify-content: center; padding-bottom: 72px; }
+  .stage { display: flex; flex-direction: column; min-height: 0; }
+  .ed-bar { display: flex; }
+  .ed-title { font-size: 20px; }
+  .sheet { flex: 1; min-height: 0; -webkit-mask-image: none; mask-image: none; }
+}
+@media (min-width: 1340px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr) 596px; }
+  .sheet { width: 520px; font-size: 16px; line-height: 24px; --lh: 24px; --ind-d: 8ch; --ind-p: 13ch; --ind-c: 18ch; }
+  .suggest { position: absolute; left: calc(32px + 36ch); top: calc(var(--suggest-top, 296px) - 34px); width: 280px; margin: 0; }
+  .suggest::before { display: none; }
+  .lit::after, .echo::before {
+    content: ""; position: absolute; left: calc(100% + 0.6ch); top: 50%; width: calc(28ch - 100% - 0.6ch); height: 0;
+    border: 0; border-top: 2px solid var(--ai); border-radius: 0; transition: opacity 0.5s var(--ease);
+  }
+  .echo::before { border-top-style: dotted; }
+  .lit::before, .echo::after {
+    content: ""; position: absolute; left: calc(100% + 0.6ch - 4px); top: calc(50% - 3px); width: 8px; height: 8px;
+    border-radius: 50%; background: var(--ai); transition: opacity 0.5s var(--ease);
+  }
+  .stage:not([data-state="open"]) .lit::before { opacity: 0; }
+}
+
+/* ---------- Sections ---------- */
+.sec { padding: 64px 0; }
+@media (min-width: 1024px) { .sec { padding: 96px 0; } }
+.sec-panel { background: var(--panel); }
+.sec-head { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 1024px) { .sec-head-row { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 48px; } }
+
+/* ---------- 2. Ask ---------- */
+.ask-ui { margin-top: 32px; }
+.ask-tabs { display: flex; flex-direction: column; gap: 8px; }
+.ask-q {
+  display: block; padding: 12px 20px; border-radius: 999px; cursor: pointer; background: var(--paper);
+  box-shadow: 0 0 0 1px var(--border); font-weight: 500;
+  transition: background-color 0.3s var(--ease), color 0.3s var(--ease), box-shadow 0.3s var(--ease), transform 0.3s var(--ease);
+}
+.ask-q:hover { box-shadow: 0 0 0 1px var(--border-strong); }
+.ask-q:active { transform: scale(0.98); }
+#ask-1:checked ~ .ask-tabs [for="ask-1"], #ask-2:checked ~ .ask-tabs [for="ask-2"], #ask-3:checked ~ .ask-tabs [for="ask-3"] {
+  background: var(--primary); color: var(--primary-foreground); box-shadow: 0 0 0 1px var(--primary);
+}
+#ask-1:focus-visible ~ .ask-tabs [for="ask-1"], #ask-2:focus-visible ~ .ask-tabs [for="ask-2"], #ask-3:focus-visible ~ .ask-tabs [for="ask-3"] {
+  outline: 2px solid var(--ring); outline-offset: 2px;
+}
+.ask-stage { margin-top: 24px; }
+.ask-panel { display: none; position: relative; padding-left: 28px; }
+#ask-1:checked ~ .ask-stage [data-q="1"], #ask-2:checked ~ .ask-stage [data-q="2"], #ask-3:checked ~ .ask-stage [data-q="3"] { display: block; }
+.ask-sheet { position: relative; padding: 20px; border-radius: 8px; background: var(--paper); box-shadow: var(--shadow-paper); font-size: 14px; line-height: 20px; --lh: 20px; --ind-d: 3ch; --ind-p: 8ch; --ind-c: 13ch; }
+.ask-sheet::after { content: ""; position: absolute; left: -21px; top: 40px; bottom: -30px; width: 2px; border-radius: 2px; background: var(--ai-border); }
+.ex + .ex { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border-strong); }
+.ex-meta { font-family: var(--font-ui); font-weight: 500; color: var(--muted-foreground); margin-bottom: 8px; }
+.ex .sc-char { margin-top: 0 !important; }
+.ex .sc-dialogue { max-width: 34ch; }
+.ex .gap { margin-top: var(--lh); }
+.ex-fact { font-family: var(--font-ui); font-size: 16px; line-height: 24px; --lh: 24px; }
+.ask-sheet mark, .ask-sheet ins { background: var(--ai-subtle); color: inherit; text-decoration: none; border-radius: 2px; box-shadow: 0 0 0 2px var(--ai-subtle), 0 2px 0 2px var(--ai-border); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.ask-sheet s { color: var(--muted-foreground); text-decoration-color: var(--destructive); }
+.hit::before, .ask-answer::before {
+  content: ""; position: absolute; left: -25px; width: 10px; height: 10px; margin-top: calc(var(--lh) / 2 - 5px); border-radius: 50%;
+  background: var(--ai); box-shadow: 0 0 0 3px var(--panel);
+}
+.ask-answer { position: relative; margin-top: 24px; --lh: 20px; }
+.who { display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--muted-foreground); }
+.who-ai { color: var(--ai); }
+.ask-answer .answer { margin-top: 8px; font-size: 18px; line-height: 28px; text-wrap: pretty; max-width: 30em; }
+.ask-answer .eg { margin-top: 12px; }
+
+@media (min-width: 768px) {
+  .ask-tabs { flex-direction: row; flex-wrap: wrap; }
+  .ask-sheet { padding: 28px 32px; }
+}
+@media (min-width: 1024px) {
+  .ask-stage { margin-top: 40px; }
+  .ask-panel { padding-left: 0; min-height: 360px; grid-template-columns: minmax(0, 11fr) minmax(0, 10fr); column-gap: 96px; align-items: center; }
+  #ask-1:checked ~ .ask-stage [data-q="1"], #ask-2:checked ~ .ask-stage [data-q="2"], #ask-3:checked ~ .ask-stage [data-q="3"] { display: grid; }
+  .ask-sheet { padding: 32px 40px; font-size: 16px; line-height: 24px; --lh: 24px; --ind-d: 8ch; --ind-p: 13ch; --ind-c: 18ch; }
+  .ask-sheet::after { display: none; }
+  .ex + .ex { margin-top: 24px; padding-top: 24px; }
+  .hit::before {
+    left: calc(100% - 5px); width: 53px; border-radius: 0; box-shadow: none;
+    background: radial-gradient(circle at 5px 50%, var(--ai) 0 4.5px, transparent 5px), linear-gradient(var(--ai-border), var(--ai-border)) 0 50% / 100% 2px no-repeat;
+  }
+  .ask-answer { margin-top: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
+  .ask-answer::before { left: -48px; top: 0; bottom: 0; width: 2px; height: auto; margin: 0; border-radius: 2px; background: var(--ai-border); box-shadow: none; }
+  .ask-answer .answer { font-size: 20px; line-height: 32px; }
+}
+
+/* ---------- 3. Knowledge: the garage ---------- */
+.know { background: var(--desk); color: var(--foreground); }
+.know-head { display: grid; gap: 20px; }
+.know-head .body-lg { max-width: 40em; }
+.board { position: relative; margin-top: 48px; display: grid; gap: 32px; --floor: var(--panel); }
+.talk { min-width: 0; }
+.turn { margin-top: 24px; }
+.turn .who { margin-bottom: 8px !important; }
+.author-text { font-family: var(--font-prose); font-size: 24px; line-height: 32px; font-weight: 500; text-wrap: pretty; }
+.reply { font-size: 18px; line-height: 28px; text-wrap: pretty; }
+.punch { margin-top: 12px !important; font-family: var(--font-prose); font-weight: 600; font-size: 30px; line-height: 40px; letter-spacing: -0.015em; }
+.lg-br { display: none; }
+.ph {
+  text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--ai); text-decoration-thickness: 2px; text-underline-offset: 5px; border-radius: 3px; cursor: pointer;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  transition: background-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.punch .ph { text-underline-offset: 8px; }
+.ph:hover { background: color-mix(in oklch, var(--ai-subtle) 60%, transparent); }
+.ph.is-on { background: var(--ai-subtle); box-shadow: 0 0 0 3px var(--ai-subtle); text-decoration-style: solid; }
+.punch .ph:hover, .punch .ph.is-on { background: transparent; box-shadow: none; }
+.punch .ph.is-on { text-decoration-color: var(--ai); text-decoration-thickness: 3px; }
+
+.notes { min-width: 0; }
+.notes-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.stepper { display: none; align-items: center; gap: 4px; }
+.js .stepper { display: flex; }
+.step-btn { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; cursor: pointer; transition: background-color 0.3s var(--ease); }
+.step-btn:hover { background: var(--muted); }
+.step-dots { display: flex; align-items: center; }
+.step-dot { width: 20px; height: 36px; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.step-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); transition: background-color 0.3s var(--ease), transform 0.3s var(--ease); }
+.step-dot.is-on::before { background: var(--ai); transform: scale(1.4); }
+.note-list { margin-top: 8px !important; display: grid; gap: 16px; }
+.note-title { font-weight: 600; color: var(--ai); }
+.note-text { margin-top: 4px !important; color: var(--foreground); max-width: 34em; }
+.js .note-list { min-height: 124px; display: block; }
+.js .note { display: none; }
+.js .note.is-on { display: block; animation: note-in 0.5s var(--ease) both; }
+@keyframes note-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.floor { position: relative; border-radius: 16px; background: radial-gradient(90% 45% at 50% 22%, oklch(0.36 0.055 70 / 0.3), transparent), var(--floor); box-shadow: 0 0 0 1px var(--border); overflow: hidden; }
+.floor::before { content: ""; position: absolute; inset: 0; background-image: var(--grain-image); opacity: 0.1; pointer-events: none; }
+.floor-sides { position: absolute; z-index: 1; inset: 12px 0 auto 0; display: grid; grid-template-columns: 1fr 1fr; text-align: center; font-size: 13px; line-height: 16px; color: var(--muted-foreground); }
+.plan { position: relative; display: block; width: 100%; height: auto; color: var(--foreground); }
+.plan text { font-family: var(--font-ui); stroke: none; }
+.plan .mark { font-weight: 600; font-size: 22px; text-anchor: middle; dominant-baseline: central; fill: currentColor; }
+.plan .lbl { font-size: 13px; fill: var(--muted-foreground); transition: fill 0.5s var(--ease); }
+.plan .line { stroke-dasharray: 100; }
+.plan .m, .plan .t { transition: opacity 0.5s var(--ease); }
+.board[data-m="a"] .m:not(.m-a), .board[data-m="a"] .t:not(.t-a),
+.board[data-m="b"] .m:not(.m-b), .board[data-m="b"] .t:not(.t-b),
+.board[data-m="c"] .m:not(.m-c), .board[data-m="c"] .t:not(.t-c) { opacity: 0.45; }
+.board[data-m="a"] .l-a, .board[data-m="b"] .l-b, .board[data-m="c"] .l-c { fill: var(--foreground); }
+/* a phone looks at one moment at a time: the plan slides along the chalk line */
+@media (max-width: 1023px) {
+  .js .floor { aspect-ratio: 320 / 224; }
+  .js .plan { transform: translateY(var(--pan, -31.5%)); transition: transform 0.9s var(--ease); }
+  .board[data-m] .m, .board[data-m] .t { opacity: 1 !important; }
+}
+.threads { display: none; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.threads path { fill: none; stroke: var(--ai); stroke-width: 2; stroke-linecap: round; }
+.threads circle { fill: var(--ai); }
+.board-cap { margin-top: 24px !important; }
+
+@media (min-width: 1024px) {
+  .know-head { gap: 24px; }
+  .board { margin-top: 64px; grid-template-columns: minmax(0, 1fr) 372px; column-gap: 96px; row-gap: 0; align-items: start; }
+  .talk { grid-column: 1; grid-row: 1; }
+  .notes { grid-column: 1; grid-row: 2; }
+  .floor { grid-column: 2; grid-row: 1 / span 2; }
+  .turn:first-of-type { margin-top: 16px; }
+  .author-text { font-size: 30px; line-height: 40px; }
+  .reply { font-size: 20px; line-height: 32px; }
+  .punch { font-size: 48px; line-height: 56px; }
+  .lg-br { display: inline; }
+  .js .threads { display: block; }
+  .notes { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); }
+}
+
+/* ---------- 4. Draft ---------- */
+.draft-grid { display: grid; gap: 32px; }
+.draft-copy { display: flex; flex-direction: column; gap: 20px; }
+.formats { display: flex; flex-wrap: wrap; gap: 8px; }
+.format { font-family: var(--font-script); font-size: 14px; line-height: 20px; padding: 4px 10px; border-radius: 6px; background: var(--paper); box-shadow: 0 0 0 1px var(--border); }
+.shot { position: relative; }
+.shot-frame { border-radius: 16px; overflow: hidden; background: var(--panel); box-shadow: var(--shadow-paper), 0 0 0 1px var(--border); }
+.shot-frame img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: left top; }
+.shot-cap { margin-top: 12px !important; }
+.file {
+  position: relative; z-index: 2; display: flex; align-items: center; gap: 12px; width: fit-content; max-width: 100%;
+  margin: 0 0 -20px 16px; padding: 12px 16px 12px 12px; border-radius: 12px; background: var(--paper);
+  box-shadow: var(--shadow-paper), 0 0 0 1px var(--border);
+}
+.file-name { font-weight: 500; }
+@media (max-width: 639px) {
+  .shot-frame { aspect-ratio: 4 / 3; }
+  .shot-frame img { width: 190%; max-width: none; height: auto; aspect-ratio: auto; }
+}
+@media (min-width: 1024px) {
+  .draft-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; }
+  .shot { margin-right: -96px; }
+  .file { position: absolute; left: -40px; bottom: 56px; margin: 0; }
+}
+
+/* ---------- 5. Team ---------- */
+.team-grid { display: grid; gap: 32px; }
+.letter { display: flex; flex-direction: column; gap: 20px; max-width: 640px; }
+.team-head { display: flex; flex-direction: column; gap: 24px; }
+.epigraph { color: var(--muted-foreground); max-width: 28em; }
+.epigraph figcaption { margin-top: 4px; font-weight: 500; }
+.prose { font-family: var(--font-prose); font-size: 20px; line-height: 32px; text-wrap: pretty; }
+.credo { margin-top: 48px !important; font-family: var(--font-prose); font-weight: 600; letter-spacing: -0.015em; font-size: 30px; line-height: 40px; text-wrap: balance; max-width: 22em; }
+.js .credo .w { opacity: 0.28; transition: opacity 0.6s var(--ease); transition-delay: calc(var(--i) * 70ms); }
+.js .credo[data-in] .w { opacity: 1; }
+@media (min-width: 1024px) {
+  .team-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; }
+  .credo { margin-top: 96px !important; font-size: 48px; line-height: 60px; }
+}
+
+/* ---------- 6. Beta ---------- */
+.beta-grid { display: grid; gap: 32px; }
+.beta-copy { display: flex; flex-direction: column; gap: 16px; }
+.form { position: relative; display: flex; flex-direction: column; gap: 24px; padding: 24px; border-radius: 16px; background: var(--paper); box-shadow: var(--shadow-paper), 0 0 0 1px var(--border); }
+.form-row { display: grid; gap: 24px; }
+.field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.field label, .field legend { font-size: 14px; line-height: 20px; font-weight: 500; }
+.input { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--paper); font: inherit; color: inherit; transition: border-color 0.3s var(--ease); }
+.input:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.input[aria-invalid="true"] { border-color: var(--destructive); }
+.site fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.site legend { padding: 0; margin-bottom: 8px; }
+.roles { display: flex; flex-wrap: wrap; gap: 8px; }
+.role { cursor: pointer; padding: 8px 16px; border-radius: 999px; font-size: 14px; line-height: 20px; box-shadow: 0 0 0 1px var(--border-strong); transition: background-color 0.3s var(--ease), color 0.3s var(--ease); }
+.role:hover { background: var(--muted); }
+.role:has(input:checked) { background: var(--primary); color: var(--primary-foreground); box-shadow: 0 0 0 1px var(--primary); }
+.role:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+.consent { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 20px; }
+.consent input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--primary); }
+.err { color: var(--destructive); font-size: 14px; line-height: 20px; }
+.done { display: flex; flex-direction: column; gap: 8px; }
+.faq-grid { display: grid; gap: 24px; margin-top: 64px; }
+.faq { border-top: 1px solid var(--border); }
+.faq details { border-bottom: 1px solid var(--border); }
+.faq summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; cursor: pointer; list-style: none; font-size: 18px; line-height: 28px; font-weight: 500; border-radius: 6px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq .plus { position: relative; width: 16px; height: 16px; flex: none; transition: transform 0.5s var(--ease); }
+.faq .plus::before, .faq .plus::after { content: ""; position: absolute; left: 0; top: 7px; width: 16px; height: 2px; border-radius: 2px; background: var(--muted-foreground); }
+.faq .plus::after { transform: rotate(90deg); }
+.faq details[open] .plus { transform: rotate(45deg); }
+.faq details p { padding: 0 32px 20px 0; color: var(--muted-foreground); max-width: 36em; }
+@media (min-width: 640px) { .form { padding: 32px; } .form-row { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) {
+  .beta-grid, .faq-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: start; }
+  .faq-grid { margin-top: 96px; }
+}
+
+/* ---------- Footer ---------- */
+.foot { padding: 32px 0 48px; }
+.foot-in { display: flex; flex-direction: column; gap: 16px; padding-top: 32px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 14px; line-height: 20px; }
+.foot ul { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.foot a { text-decoration: none; }
+.foot a:hover { color: var(--foreground); text-decoration: underline; }
+@media (min-width: 768px) { .foot-in { flex-direction: row; align-items: center; justify-content: space-between; } }
+
+/* ---------- Motion (openspec/specs/web/site, «Движение на сайте»): transform, opacity, clip-path, dashoffset ---------- */
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes sweep { from { clip-path: inset(-6px 100% -6px -6px); } to { clip-path: inset(-6px -6px -6px -6px); } }
+@keyframes sweep-far { from { clip-path: inset(-6px 100% -6px -6px); } to { clip-path: inset(-6px -40ch -6px -6px); } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) {
+  .js .hero-copy > * { animation: rise 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 80ms); }
+  .js .stage { animation: rise 1s var(--ease) 0.15s both; }
+  .js .stage .lit-old { animation: sweep-far 1s var(--ease) 0.9s both; }
+  .js .stage .co-panel { animation: rise 0.7s var(--ease) 1.4s both; }
+  .js .stage .suggest::before { animation: fade 0.4s var(--ease) 1.4s both; }
+  .js .ask-panel .ask-sheet { animation: rise 0.6s var(--ease) both; }
+  .js .ask-panel mark, .js .ask-panel ins { animation: sweep 0.7s var(--ease) 0.25s both; }
+  .js .ask-panel .ask-answer > * { animation: rise 0.7s var(--ease) 0.35s both; }
+  .js [data-reveal] { transition: opacity 0.8s var(--ease), transform 0.8s var(--ease); }
+  .js [data-reveal]:not([data-in]) { opacity: 0; transform: translateY(32px); }
+  .threads path { transition: stroke-dashoffset 0.7s var(--ease); }
+  .js .board:not([data-in]) .line { stroke-dashoffset: 100; }
+  .js .board:not([data-in]) .m, .js .board:not([data-in]) .t, .js .board:not([data-in]) .lbl, .js .board:not([data-in]) .threads { opacity: 0; }
+  .js .board .line { transition: stroke-dashoffset 1.8s cubic-bezier(0.45, 0, 0.2, 1) 0.2s; }
+  .js .board[data-in] .m-a, .js .board[data-in] .t-a, .js .board[data-in] .l-a { animation: fade 0.7s var(--ease) 0.5s backwards; }
+  .js .board[data-in] .m-b, .js .board[data-in] .t-b, .js .board[data-in] .l-b { animation: fade 0.7s var(--ease) 1s backwards; }
+  .js .board[data-in] .m-c, .js .board[data-in] .t-c, .js .board[data-in] .l-c { animation: fade 0.7s var(--ease) 1.5s backwards; }
+  .js .board .threads { transition: opacity 0.6s var(--ease) 1.9s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .site *, .site *::before, .site *::after { animation: none !important; transition: none !important; }
+  .js .credo .w { opacity: 1; }
+}
+</style>
+<div class="site" id="top">
+<script>document.currentScript.parentElement.classList.add("js"); document.documentElement.lang = "ru";</script>
+
+<header class="top">
+  <div class="wrap">
+    <nav class="nav" aria-label="Основная навигация">
+      <a class="brand" href="#top">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#2b4d8e"/><path d="M20.44 9.87A8 8 0 1 0 20.44 22.13" fill="none" stroke="#fefdf9" stroke-width="3.6" stroke-linecap="round"/><rect x="23.5" y="10.5" width="2.6" height="11" rx="1.3" fill="#e6af6e"/></svg>
+        Соавтор
+      </a>
+      <div class="nav-actions">
+        <a class="nav-link" href="https://app.soavtor.app">Войти</a>
+        <a class="btn btn-primary btn-sm nav-cta" href="#beta">Хочу в бету</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- 1. Первый экран -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <h1 class="h1" id="hero-title" style="--i:0">Редактор сценариев с&nbsp;ИИ‑соавтором</h1>
+      <p class="body-lg muted hero-lead" style="--i:1">Пишите сценарий и обсуждайте его с Соавтором. Он помнит ваших героев, замечает противоречия и помогает доработать сцену.</p>
+      <div class="hero-cta" style="--i:2">
+        <a class="btn btn-primary" id="hero-cta" href="#beta">Хочу в бету</a>
+        <span class="small muted">Бесплатно по приглашению</span>
+      </div>
+    </div>
+
+    <figure class="stage" data-state="open" aria-label="Лист сценария «Тихая вода» и окно Соавтора рядом с ним">
+      <div class="ed-head">
+        <p class="ed-title" aria-hidden="true">Текст сценария</p>
+        <figcaption class="ed-cap">Пример из беты · <span class="ed-wide">демо‑история </span>«Тихая вода»</figcaption>
+      </div>
+      <div class="ed-bar" aria-hidden="true">
+        <span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5 2.5 6.5l3 3M2.5 6.5h7a3.5 3.5 0 0 1 0 7H7.5"/></svg></span>
+        <span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 3.5 3 3-3 3M13.5 6.5h-7a3.5 3.5 0 0 0 0 7h2"/></svg></span>
+        <span class="sep"></span>
+        <span>Реплика</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 4.5 3 3 3-3"/></svg>
+        <span class="sep"></span>
+        <span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.25"/><path d="m10.25 10.25 3.25 3.25"/></svg></span>
+        <span class="grow"></span>
+        <span class="count"><span class="dot"></span>2</span>
+        <span class="count"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 3.5h10v7.5H7.5L4.5 13.5V11H3z"/></svg>2</span>
+      </div>
+      <div class="sheet script">
+        <p class="sc-heading">ИНТ. ГАРАЖ ДЯДИ КОЛИ — ВЕЧЕР</p>
+        <p class="sc-action sc-wide">Разобранный мотор на верстаке. КОЛЯ протирает ключ ветошью. Аня садится на перевёрнутый ящик.</p>
+        <p class="sc-char sc-wide on">АНЯ</p>
+        <p class="sc-dialogue sc-wide on">Расскажи, как это было.</p>
+        <p class="sc-char on">ДЯДЯ КОЛЯ</p>
+        <p class="sc-paren on">(не поднимая головы)</p>
+        <p class="sc-dialogue on" id="edit-line"><mark class="lit lit-old">Он утонул. Всё.</mark></p>
+        <aside class="suggest" aria-label="Окно Соавтора">
+          <div class="co-panel">
+            <p class="suggest-head caption"><span class="dot" aria-hidden="true"></span>Соавтор</p>
+            <p class="co-sees">Видит сценарий и выделенную реплику</p>
+            <ul class="co-qs">
+              <li><a class="co-q" href="#ask" data-ask="1">Где у меня расходятся детали?</a></li>
+              <li><a class="co-q" href="#ask" data-ask="2">Что мы знаем об этом герое?</a></li>
+              <li><a class="co-q" href="#ask" data-ask="3">Можно ли сократить эту сцену?</a></li>
+            </ul>
+            <div class="co-input" aria-hidden="true">
+              <span>Напишите Соавтору</span>
+              <span class="co-send"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11.5v-9M3 6.5l4-4 4 4"/></svg></span>
+            </div>
+          </div>
+        </aside>
+        <p class="sc-char">АНЯ</p>
+        <p class="sc-dialogue">Мама говорит то же самое.<br>Теми же словами.</p>
+        <p class="sc-heading sc-next">ИНТ. ДОМ ВЕРЫ, КУХНЯ — НОЧЬ</p>
+        <p class="sc-action">Свет только над раковиной. ВЕРА моет чашку. Чашка давно чистая. Она всё равно трёт её губкой.</p>
+        <p class="sc-char">АНЯ (З.К.)</p>
+        <p class="sc-dialogue">Мам, ты опять не спишь?</p>
+        <p class="sc-action sc-wide">Входит АНЯ, в куртке, с рюкзаком. Ставит рюкзак на стул.</p>
+        <p class="sc-char sc-wide">ВЕРА</p>
+        <p class="sc-paren sc-wide">(не оборачиваясь)</p>
+        <p class="sc-dialogue sc-wide">Я же просила звонить, когда едешь так поздно.</p>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<!-- 2. Спросите о своём сценарии -->
+<section class="sec sec-panel" id="ask" aria-labelledby="ask-title" style="scroll-margin-top:24px">
+  <div class="wrap" data-reveal>
+    <div class="sec-head sec-head-row">
+      <h2 class="h2" id="ask-title">Спросите о своём сценарии</h2>
+      <p class="small muted">Примеры ответов по демо-истории «Тихая вода».</p>
+    </div>
+    <div class="ask-ui">
+      <input class="sr-only" type="radio" name="ask" id="ask-1" checked>
+      <input class="sr-only" type="radio" name="ask" id="ask-2">
+      <input class="sr-only" type="radio" name="ask" id="ask-3">
+      <div class="ask-tabs">
+        <label class="ask-q" for="ask-1">Где у меня расходятся детали?</label>
+        <label class="ask-q" for="ask-2">Что мы знаем об этом герое?</label>
+        <label class="ask-q" for="ask-3">Можно ли сократить эту сцену?</label>
+      </div>
+      <div class="ask-stage">
+
+        <div class="ask-panel" data-q="1">
+          <div class="ask-sheet script">
+            <div class="ex">
+              <p class="ex-meta small">Сцена 5 · Гараж</p>
+              <p class="sc-char">ДЯДЯ КОЛЯ</p>
+              <p class="sc-paren">(не поднимая головы)</p>
+              <p class="sc-dialogue hit"><mark>Он утонул. Всё.</mark></p>
+            </div>
+            <div class="ex">
+              <p class="ex-meta small">Сцена 6 · Кухня</p>
+              <p class="sc-char">АНЯ</p>
+              <p class="sc-dialogue hit">Я была у дяди Коли. <mark>Он сказал, что Миша утонул не случайно.</mark></p>
+            </div>
+          </div>
+          <div class="ask-answer">
+            <p class="who who-ai">Соавтор</p>
+            <p class="answer">В сцене 5 Коля говорит: «Он утонул. Всё.» В сцене 6 Аня пересказывает его слова иначе: «Он сказал, что Миша утонул не случайно». Аня так поняла Колю или сознательно меняет его слова?</p>
+            <p class="eg small muted">Пример ответа</p>
+          </div>
+        </div>
+
+        <div class="ask-panel" data-q="2">
+          <div class="ask-sheet script">
+            <div class="ex">
+              <p class="ex-meta small">Карточка героя · Дядя Коля</p>
+              <p class="ex-fact hit">Деверь Веры; <mark>был на озере в тот день</mark>.</p>
+            </div>
+            <div class="ex">
+              <p class="ex-meta small">Сцена 3 · Пристань</p>
+              <p class="hit">Паром причаливает. АНЯ (24) спрыгивает на берег с рюкзаком. <mark>ДЯДЯ КОЛЯ (60)</mark> курит у будки кассы.</p>
+              <p class="gap hit"><mark>Коля отводит глаза к воде.</mark></p>
+            </div>
+            <div class="ex">
+              <p class="ex-meta small">Сцена 5 · Гараж</p>
+              <p class="sc-char">ДЯДЯ КОЛЯ</p>
+              <p class="sc-paren hit"><mark>(не поднимая головы)</mark></p>
+              <p class="sc-dialogue">Он утонул. Всё.</p>
+            </div>
+          </div>
+          <div class="ask-answer">
+            <p class="who who-ai">Соавтор</p>
+            <p class="answer">Дяде Коле 60 лет. Он был на озере в тот день. В сцене 3 он отводит взгляд к воде, а в гараже отвечает Ане, не поднимая головы.</p>
+            <p class="eg small muted">Пример ответа</p>
+          </div>
+        </div>
+
+        <div class="ask-panel" data-q="3">
+          <div class="ask-sheet script">
+            <div class="ex">
+              <p class="ex-meta small">Сцена 6 · Кухня</p>
+              <p class="hit">Свет только над раковиной. ВЕРА моет чашку. <s>Чашка давно чистая. Она всё равно трёт её губкой.</s></p>
+              <p class="gap hit"><ins>Чашка давно чистая — Вера всё равно её трёт.</ins></p>
+            </div>
+          </div>
+          <div class="ask-answer">
+            <p class="who who-ai">Соавтор</p>
+            <p class="answer">В сцене 6 есть ремарка: «Чашка давно чистая. Она всё равно трёт её губкой». Можно короче: «Чашка давно чистая — Вера всё равно её трёт». Жест останется.</p>
+            <p class="eg small muted">Пример ответа</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Знания о драматургии — под рукой -->
+<section class="sec know night" aria-labelledby="know-title">
+  <div class="wrap">
+    <div class="know-head" data-reveal>
+      <h2 class="h2" id="know-title">Знания о драматургии — под рукой</h2>
+      <p class="body-lg muted">Мы собираем в Соавторе знания, на изучение которых у одного человека ушли бы годы. От классических школ сценарного мастерства до исследований того, как зритель считывает подтекст и чувствует напряжение. Мы создаём ИИ, с которым всё это можно обсудить на материале сцены, над которой вы сейчас работаете.</p>
+    </div>
+
+    <div class="board" data-reveal>
+      <div class="talk">
+        <p class="small muted">Редакционный пример</p>
+        <div class="turn">
+          <p class="who">Автор</p>
+          <p class="author-text">Хочу помирить братьев в финале.<br class="lg-br"> Но я их знаю.<br class="lg-br"> <a class="ph" href="#note-1" data-n="1">Ни один из них не скажет «прости».</a></p>
+        </div>
+        <div class="turn">
+          <p class="who who-ai"><span class="dot" aria-hidden="true"></span>Соавтор</p>
+          <p class="reply">Помните, как они делили отцовский гараж<br class="lg-br"> и <a class="ph" href="#note-2" data-n="2">провели мелом черту</a><br class="lg-br"> прямо по полу? Что, если в финале младший придёт<br class="lg-br"> в гараж, а <a class="ph" href="#note-3" data-n="3">старший уже лежит под его машиной?</a><br class="lg-br"> Из-под машины только <a class="ph" href="#note-4" data-n="4">рука высунется.</a></p>
+          <p class="punch"><a class="ph" href="#note-5" data-n="5">«Дай на тринадцать».</a></p>
+        </div>
+      </div>
+
+      <div class="floor">
+        <p class="floor-sides" aria-hidden="true"><span>сторона старшего</span><span>сторона младшего</span></p>
+        <svg class="plan" viewBox="0 0 320 600" role="img" aria-label="Пол гаража сверху. Меловая черта делит его на сторону старшего и сторону младшего. В начале братья стоят каждый на своей стороне. После ссоры ключ лежит на черте. В финале старший лежит под машиной на стороне младшего, из-под машины видна рука.">
+          <defs>
+            <filter id="chalk" filterUnits="userSpaceOnUse" x="-20" y="-20" width="360" height="640">
+              <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="n"/>
+              <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
+              <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="11" result="g"/>
+              <feColorMatrix in="g" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.2 1.75" result="mask"/>
+              <feComposite in="d" in2="mask" operator="in"/>
+            </filter>
+          </defs>
+          <g filter="url(#chalk)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path class="line" pathLength="100" d="M160 12 C156 120 164 214 160 300 S156 486 160 588" stroke-width="5.5"/>
+            <g class="m m-a">
+              <circle cx="80" cy="112" r="22"/>
+              <circle cx="240" cy="112" r="22"/>
+              <g transform="translate(184 58) rotate(40)"><rect x="-15" y="-5" width="30" height="10" rx="3" fill="currentColor" stroke="none"/></g>
+              <g fill="currentColor" stroke="none"><circle cx="169" cy="76" r="1.6"/><circle cx="174" cy="84" r="1.2"/><circle cx="167" cy="88" r="1"/></g>
+            </g>
+            <g class="m m-b">
+              <circle cx="74" cy="262" r="22"/>
+              <circle cx="246" cy="338" r="22"/>
+              <g transform="translate(160 300) rotate(-28)" fill="var(--floor)">
+                <path d="M-28 -5 H16 V-12 H38 V-5 H27 V5 H38 V12 H16 V5 H-28 Z"/>
+                <circle cx="-36" cy="0" r="10"/>
+                <circle cx="-36" cy="0" r="3.5" fill="none"/>
+              </g>
+            </g>
+            <g class="m m-c">
+              <g fill="currentColor" stroke="none">
+                <rect x="196" y="420" width="7" height="24" rx="3"/><rect x="277" y="420" width="7" height="24" rx="3"/>
+                <rect x="196" y="486" width="7" height="24" rx="3"/><rect x="277" y="486" width="7" height="24" rx="3"/>
+              </g>
+              <rect x="202" y="402" width="76" height="126" rx="20" fill="var(--floor)"/>
+              <path d="M215 434 Q240 424 265 434"/>
+              <path d="M217 506 Q240 512 263 506"/>
+              <circle cx="240" cy="468" r="20" stroke-dasharray="3 6"/>
+              <path d="M233 529 v12 a7 7 0 0 0 14 0 v-12" fill="var(--floor)"/>
+              <circle cx="240" cy="574" r="20"/>
+            </g>
+          </g>
+          <g class="t t-a"><text class="mark" x="80" y="112">С</text><text class="mark" x="240" y="112">М</text></g>
+          <g class="t t-b"><text class="mark" x="74" y="262">С</text><text class="mark" x="246" y="338">М</text></g>
+          <g class="t t-c"><text class="mark" x="240" y="468">С</text><text class="mark" x="240" y="574">М</text></g>
+          <text class="lbl l-a" x="16" y="168">в начале</text>
+          <text class="lbl l-b" x="16" y="322">после ссоры</text>
+          <text class="lbl l-c" x="16" y="474">финал</text>
+        </svg>
+      </div>
+
+      <div class="notes">
+        <div class="notes-head">
+          <p class="title">Откуда взялась эта подсказка?</p>
+          <div class="stepper">
+            <button type="button" class="step-btn" data-step="-1" aria-label="Предыдущая связь"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg></button>
+            <div class="step-dots">
+              <button type="button" class="step-dot" data-n="1" aria-label="Характер братьев"></button>
+              <button type="button" class="step-dot" data-n="2" aria-label="В начале сценария"></button>
+              <button type="button" class="step-dot" data-n="3" aria-label="Взгляд зрителя"></button>
+              <button type="button" class="step-dot" data-n="4" aria-label="После ссоры"></button>
+              <button type="button" class="step-dot" data-n="5" aria-label="Подтекст реплики"></button>
+            </div>
+            <button type="button" class="step-btn" data-step="1" aria-label="Следующая связь"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></button>
+          </div>
+        </div>
+        <ol class="note-list" aria-live="polite">
+          <li class="note" id="note-1" data-n="1" data-m="c"><p class="note-title">Характер братьев</p><p class="note-text">Автор хочет их помирить. Обоим проще починить машину, чем первыми заговорить о ссоре.</p></li>
+          <li class="note" id="note-2" data-n="2" data-m="a"><p class="note-title">В начале сценария</p><p class="note-text">Братья проводят мелом черту по полу отцовского гаража. У каждого теперь своя сторона.</p></li>
+          <li class="note" id="note-3" data-n="3" data-m="c"><p class="note-title">Взгляд зрителя</p><p class="note-text">Дэвид Бордуэлл писал о том, как зритель использует уже замеченные детали. Здесь зритель помнит черту. Теперь он видит, на чьей стороне гаража лежит старший.</p></li>
+          <li class="note" id="note-4" data-n="4" data-m="b"><p class="note-title">После ссоры</p><p class="note-text">Младшему нужен ключ. Старший кладёт его на черту. Из рук в руки они его уже не передают.</p></li>
+          <li class="note" id="note-5" data-n="5" data-m="c"><p class="note-title">Подтекст реплики</p><p class="note-text">На словах старшему нужен ключ. Для младшего это ещё и приглашение снова поработать вместе.</p></li>
+        </ol>
+      </div>
+
+      <svg class="threads" aria-hidden="true"><path d=""/><circle class="t-from" r="4"/><circle class="t-to" r="4"/></svg>
+    </div>
+    <p class="small muted board-cap">Сцену с братьями мы придумали для этой страницы, чтобы показать подход команды.</p>
+  </div>
+</section>
+
+<!-- 4. Продолжайте с того места, где остановились -->
+<section class="sec" aria-labelledby="draft-title" style="overflow:clip">
+  <div class="wrap draft-grid" data-reveal>
+    <div class="draft-copy">
+      <h2 class="h2" id="draft-title">Продолжайте с того места, где остановились</h2>
+      <p class="body-lg">Откройте свой файл в Соавторе. В редакторе появятся знакомые сцены. Можно сразу вернуться к нужной реплике или попробовать другой финал в отдельном драфте.</p>
+      <p class="small muted">Импорт из Fountain, FDX, STARC, DOCX и TXT.</p>
+    </div>
+    <figure class="shot">
+      <div class="file" aria-hidden="true">
+        <svg width="32" height="40" viewBox="0 0 32 40" fill="none" aria-hidden="true"><path d="M3 1h17l9 9v27a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Z" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5"/><path d="M20 1v9h9" stroke="var(--border-strong)" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 18h18M7 23h18M7 28h11" stroke="var(--border-strong)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div>
+          <p class="file-name">Тихая вода.fdx</p>
+          <p class="small muted">Final Draft · 7 сцен</p>
+        </div>
+      </div>
+      <div class="shot-frame">
+        <img src="shots/workspace-1440.webp" srcset="shots/workspace-720.webp 720w, shots/workspace-1440.webp 1440w" sizes="(min-width: 1024px) 760px, 190vw" width="1440" height="900" loading="lazy" alt="Редактор Соавтора: слева документы истории и драфт, в центре текст сценария, справа чат Соавтора.">
+      </div>
+      <figcaption class="small muted shot-cap">Экран беты. Сценарий «Тихая вода» в редакторе.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- 5. Зачем мы делаем Соавтора -->
+<section class="sec sec-panel" aria-labelledby="team-title">
+  <div class="wrap">
+    <div class="team-grid" data-reveal>
+      <div class="team-head">
+        <h2 class="h2" id="team-title">Зачем мы делаем Соавтора</h2>
+        <figure class="epigraph small">
+          <blockquote>«Мы вначале имеем интеллектуальный замысел. И наша задача — опустить его в область сердца, не задерживаясь по дороге в области мозга.»</blockquote>
+          <figcaption>Ингмар Бергман</figcaption>
+        </figure>
+      </div>
+      <div class="letter">
+        <p class="prose">Мы любим кино за редкую возможность увидеть мир глазами другого человека. За этим взглядом стоит целая жизнь. Кого автор любил, во что когда-то верил, что до сих пор пытается понять. Даже если в истории выдумано всё до последней детали, в ней есть то, что мог привнести только этот человек.</p>
+        <p class="prose">Из этой любви вырос Соавтор. Его создают профессиональные авторы и инженеры. Мы знаем сценарную работу изнутри и умеем строить ИИ. Вместе мы решаем, где технология может помочь, и даём автору эту поддержку прямо там, где он пишет.</p>
+      </div>
+    </div>
+    <p class="credo" id="credo">Мы хотим, чтобы ИИ помогал авторам доводить свои истории до конца. И чтобы в кино звучало больше авторских голосов.</p>
+  </div>
+</section>
+
+<!-- 6. Попробуйте на своём сценарии -->
+<section class="sec" id="beta" aria-labelledby="beta-title" style="scroll-margin-top:72px">
+  <div class="wrap">
+    <div class="beta-grid" data-reveal>
+      <div class="beta-copy">
+        <h2 class="h2" id="beta-title">Попробуйте на своём сценарии</h2>
+        <p class="body-lg muted">Бета закрытая: доступ открываем вручную, по заявкам.</p>
+        <p class="small muted">Уже получили приглашение? <a class="link" href="https://app.soavtor.app">Войдите</a> по своей почте.</p>
+      </div>
+      <form class="form" id="beta-form" novalidate>
+        <div class="form-row">
+          <div class="field"><label for="f-email">Почта</label><input class="input" id="f-email" type="email" autocomplete="email" inputmode="email"><p class="err" data-err="email" hidden></p></div>
+          <div class="field"><label for="f-name">Имя</label><input class="input" id="f-name" autocomplete="name"><p class="err" data-err="name" hidden></p></div>
+        </div>
+        <fieldset class="field">
+          <legend>Кто вы</legend>
+          <div class="roles">
+            <label class="role"><input class="sr-only" id="f-role-1" type="radio" name="role" value="screenwriter">Сценарист</label>
+            <label class="role"><input class="sr-only" id="f-role-2" type="radio" name="role" value="writer">Писатель</label>
+            <label class="role"><input class="sr-only" id="f-role-3" type="radio" name="role" value="other">Другое</label>
+          </div>
+          <p class="err" data-err="role" hidden></p>
+        </fieldset>
+        <div class="field">
+          <label class="consent" for="f-consent"><input id="f-consent" type="checkbox"><span>Даю согласие на обработку персональных данных по <a class="link" href="https://soavtor.app/privacy/">политике</a>.</span></label>
+          <p class="err" data-err="consent" hidden></p>
+        </div>
+        <div><button type="submit" class="btn btn-primary">Отправить заявку</button></div>
+      </form>
+    </div>
+
+    <div class="faq-grid" data-reveal>
+      <h2 class="h3" id="faq-title">Вопросы и ответы</h2>
+      <div class="faq">
+        <details name="faq"><summary>Кому подходит Соавтор?<span class="plus" aria-hidden="true"></span></summary><p>Сценаристам полнометражного кино. В бете работает только формат полного метра и только на русском языке.</p></details>
+        <details name="faq"><summary>Соавтор напишет сценарий за меня?<span class="plus" aria-hidden="true"></span></summary><p>Нет. Он читает историю, отвечает на вопросы и предлагает правки к конкретным местам. Сценарий меняется, только если вы примете правку.</p></details>
+        <details name="faq"><summary>Что происходит с моими текстами?<span class="plus" aria-hidden="true"></span></summary><p>Тексты ваши и не используются для обучения моделей. Когда вы обращаетесь к соавтору, нужные фрагменты истории уходят языковой модели через наш шлюз, чтобы она могла ответить.</p></details>
+        <details name="faq"><summary>Сколько это стоит?<span class="plus" aria-hidden="true"></span></summary><p>На время беты бесплатно. У бета-тарифа есть месячный лимит работы соавтора.</p></details>
+        <details name="faq"><summary>Как попасть в бету?<span class="plus" aria-hidden="true"></span></summary><p>Заполните форму над этими вопросами. Мы читаем заявки сами и пишем на указанную почту, когда открываем доступ.</p></details>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-in">
+      <p>Соавтор, закрытая бета, 2026</p>
+      <ul>
+        <li><a href="https://soavtor.app/pricing/">Тарифы</a></li>
+        <li><a href="https://soavtor.app/legal/offer/">Публичная оферта</a></li>
+        <li><a href="https://soavtor.app/legal/privacy/">Политика обработки персональных данных</a></li>
+        <li><a href="https://app.soavtor.app">Войти</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const site = document.querySelector(".site");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const desktop = matchMedia("(min-width: 1024px)");
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+  /* Sections appear once when they come into view; no scroll listener. */
+  const seen = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.setAttribute("data-in", ""); seen.unobserve(e.target); }
+  }, { threshold: 0.15 });
+  $$("[data-reveal]").forEach((el) => (reduce ? el.setAttribute("data-in", "") : seen.observe(el)));
+
+  /* The header button appears when the button of the first screen is gone. */
+  new IntersectionObserver(([e]) => site.classList.toggle("cta-away", !e.isIntersecting), { rootMargin: "-72px 0px 0px 0px" }).observe($("#hero-cta"));
+
+  /* 1. The Co-author's window of the first screen: a ready question opens its answer in the next block. */
+  const stage = $(".stage");
+  $$(".co-q").forEach((q) => q.addEventListener("click", () => { $(`#ask-${q.dataset.ask}`).checked = true; }));
+  const placeSuggest = () => stage.style.setProperty("--suggest-top", `${$("#edit-line").offsetTop}px`);
+  placeSuggest();
+
+  /* 3. The garage: a phrase of the dialogue, its note and its moment on the floor. */
+  const board = $(".board");
+  const phrases = $$(".ph", board), notes = $$(".note", board), dots = $$(".step-dot", board);
+  const path = $(".threads path"), from = $(".t-from"), to = $(".t-to");
+  const TARGET = { a: 112 / 600, b: 300 / 600, c: 470 / 600 };
+  const PAN = { a: "0%", b: "-31.5%", c: "-62.7%" };
+  let active = 4;
+
+  function thread(animate) {
+    const phrase = phrases.find((p) => +p.dataset.n === active);
+    const note = notes.find((n) => +n.dataset.n === active);
+    if (!desktop.matches) { path.setAttribute("d", ""); from.style.display = to.style.display = "none"; return; }
+    const b = board.getBoundingClientRect();
+    const rects = phrase.getClientRects();
+    const last = rects[rects.length - 1];
+    const floor = $(".floor").getBoundingClientRect();
+    const x1 = last.right - b.left + 12, y1 = last.top + last.height / 2 - b.top;
+    const x2 = floor.left - b.left, y2 = floor.top - b.top + floor.height * TARGET[note.dataset.m];
+    const xg = x2 - 40, r = Math.min(14, Math.abs(y2 - y1) / 2), s = Math.sign(y2 - y1) || 1;
+    const d = `M${x1} ${y1} H${xg - r} Q${xg} ${y1} ${xg} ${y1 + s * r} V${y2 - s * r} Q${xg} ${y2} ${xg + r} ${y2} H${x2}`;
+    path.setAttribute("d", d);
+    from.style.display = to.style.display = "";
+    from.setAttribute("cx", x1); from.setAttribute("cy", y1);
+    to.setAttribute("cx", x2); to.setAttribute("cy", y2);
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = len;
+    if (animate && !reduce) {
+      path.style.transition = "none"; path.style.strokeDashoffset = len;
+      path.getBoundingClientRect(); path.style.transition = ""; path.style.strokeDashoffset = 0;
+    } else path.style.strokeDashoffset = 0;
+  }
+  function select(n, animate = true) {
+    active = n;
+    const note = notes.find((x) => +x.dataset.n === n);
+    board.dataset.m = note.dataset.m;
+    board.style.setProperty("--pan", PAN[note.dataset.m]);
+    for (const set of [phrases, notes, dots]) set.forEach((el) => el.classList.toggle("is-on", +el.dataset.n === n));
+    thread(animate);
+  }
+  phrases.forEach((p) => {
+    p.setAttribute("role", "button");
+    p.addEventListener("click", (e) => { e.preventDefault(); select(+p.dataset.n); });
+    p.addEventListener("mouseenter", () => desktop.matches && +p.dataset.n !== active && select(+p.dataset.n));
+    p.addEventListener("focus", () => +p.dataset.n !== active && select(+p.dataset.n));
+    p.addEventListener("keydown", (e) => { if (e.key === " ") { e.preventDefault(); select(+p.dataset.n); } });
+  });
+  dots.forEach((d) => d.addEventListener("click", () => select(+d.dataset.n)));
+  $$(".step-btn", board).forEach((b) => b.addEventListener("click", () => select(((active - 1 + +b.dataset.step + 5) % 5) + 1)));
+  select(active, false);
+  const again = () => { placeSuggest(); thread(false); };
+  new ResizeObserver(again).observe(board);
+  document.fonts?.ready.then(again);
+  desktop.addEventListener("change", again);
+
+  /* 5. The words of the last sentence light up one after another, once. */
+  const credo = $("#credo");
+  const words = credo.textContent.trim().split(/\s+/);
+  credo.textContent = "";
+  words.forEach((w, i) => {
+    const span = document.createElement("span");
+    span.className = "w"; span.style.setProperty("--i", i); span.textContent = w;
+    credo.append(span, " ");
+  });
+  if (reduce) credo.setAttribute("data-in", "");
+  else new IntersectionObserver(([e], io) => { if (e.isIntersecting) { credo.setAttribute("data-in", ""); io.disconnect(); } }, { threshold: 0.6 }).observe(credo);
+
+  /* 6. The form of the mock: the checks of the real form, no request is sent. */
+  const form = $("#beta-form");
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const email = $("#f-email").value.trim(), name = $("#f-name").value.trim();
+    const errors = {
+      email: !email ? "Укажите почту." : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "" : "Это не похоже на адрес почты.",
+      name: !name ? "Укажите имя." : name.length > 100 ? "Имя длиннее 100 символов." : "",
+      role: $("input[name=role]:checked", form) ? "" : "Выберите, кто вы.",
+      consent: $("#f-consent").checked ? "" : "Без согласия мы не можем принять заявку.",
+    };
+    for (const [key, text] of Object.entries(errors)) {
+      const el = $(`[data-err="${key}"]`, form);
+      el.textContent = text; el.hidden = !text;
+    }
+    $("#f-email").setAttribute("aria-invalid", !!errors.email); $("#f-name").setAttribute("aria-invalid", !!errors.name);
+    if (Object.values(errors).some(Boolean)) return;
+    const done = document.createElement("div");
+    done.className = "form done"; done.setAttribute("role", "status");
+    const title = document.createElement("p"); title.className = "h3"; title.textContent = "Заявка принята";
+    const text = document.createElement("p"); text.className = "body muted"; text.textContent = `Мы ответим на ${email}, когда откроем доступ.`;
+    const mock = document.createElement("p"); mock.className = "small muted"; mock.textContent = "Это макет: заявка никуда не отправлена.";
+    done.append(title, text, mock);
+    form.replaceWith(done);
+  });
+})();
+</script>
+</div>
