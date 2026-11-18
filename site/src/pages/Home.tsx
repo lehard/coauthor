@@ -5,7 +5,8 @@ import { Faq } from "../blocks/Faq";
 import { Hero } from "../blocks/Hero";
 import { Impact } from "../blocks/Impact";
 import { Sandbox } from "../blocks/Sandbox";
-import { StoryPath } from "../blocks/StoryPath";
+import { StoryApproach } from "../blocks/StoryApproach";
+import { TeamNote } from "../blocks/TeamNote";
 import { Vision } from "../blocks/Vision";
 import { BetaForm } from "../components/BetaForm";
 import { BETA_FORM } from "../content/copy";
@@ -57,9 +58,10 @@ export function Home() {
       <Vision />
       <Sandbox />
       <BetaTabs />
-      <StoryPath />
+      <StoryApproach />
       <Impact />
       <Faq />
+      <TeamNote />
       <Signup />
     </>
   );

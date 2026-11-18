@@ -5,7 +5,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
-import { ONE_ACTION, SANDBOX, VISION_CARD } from "../src/content/copy.ts";
+import {
+  ONE_ACTION,
+  SANDBOX,
+  STORY_APPROACH,
+  TEAM_NOTE,
+  VISION_CARD,
+} from "../src/content/copy.ts";
 import {
   CONTRADICTION,
   KOLYA,
@@ -75,10 +81,14 @@ if (problems.length === 0) {
     if (!home.includes(text))
       fail(`index.html has no text «${text}» without JavaScript`);
   }
-  const section = (id) =>
-    new RegExp(`<section[^>]*aria-labelledby="${id}"[\\s\\S]*?</section>`).exec(
-      home,
-    )?.[0] ?? "";
+  const section = (id) => {
+    const pattern = new RegExp(
+      `<section[^>]*aria-labelledby="${id}"[\\s\\S]*?</section>`,
+    );
+    const match = pattern.exec(home);
+    if (!match) throw new Error(`index.html has no section ${id}`);
+    return match[0];
+  };
   // The contradiction of the first screen: two quoted scenes, the co-author's card and the caption of the example.
   const hero = section("hero-title");
   if ((hero.match(/<mark[\s>]/g) ?? []).length !== 2)
@@ -89,10 +99,9 @@ if (problems.length === 0) {
     fail("the first screen has no labelled card of the co-author");
   if (!/<figcaption[^>]*>[^<]*[Пп]ример/.test(hero))
     fail("the first screen is not captioned as an example");
-  for (const id of ["path-title", "impact-title"]) {
+  for (const id of ["story-approach-title", "impact-title"]) {
     const block = section(id);
-    if (!block) fail(`index.html has no section ${id}`);
-    else if (!block.includes("Концепт"))
+    if (!block.includes("Концепт"))
       fail(`section ${id} is not marked «Концепт»`);
     else if (!block.includes("пока нет"))
       fail(`section ${id} does not say the beta has none of it yet`);
@@ -134,7 +143,6 @@ if (problems.length === 0) {
       fail(`the «one action» cards repeat the first screen: «${line}»`);
   }
   const vision = plain(section("vision-title"));
-  if (!vision) fail("index.html has no section vision-title");
   for (const text of [
     KOLYA.name,
     ...KOLYA.facts.map((fact) => fact.text),
@@ -152,34 +160,33 @@ if (problems.length === 0) {
     fail("the beta block must have five tab panels in the HTML");
   if (count(home, "data-word") < 10)
     fail("the vision phrase is not split into words");
-  const stages = [
-    "Карта импульсов",
-    "Манифест темы",
-    "Этический компас",
-    "Мировоззренческий базис",
-    "Тональный манифест",
-    "Паспорт места",
-    "Атлас правил",
-    "Жанровый кодекс",
-    "Концепт-вектор",
-    "Референсное поле",
-    "Главный вопрос",
-    "Выбор формата",
-    "Скелетная карта",
-    "Поэпизодник",
-    "Кастинг-лист",
-    "Психологические профили",
-    "Диалоговая партитура",
-    "Ансамбль и рентген",
-    "Битовая карта сцены",
-    "Черновик сцены",
-    "Обратный протокол",
-    "Финальный текст",
-  ];
-  for (const stage of stages) {
-    if (!section("path-title").includes(stage))
-      fail(`the story path has no stage «${stage}»`);
+  for (const [id, copy] of [
+    ["story-approach-title", STORY_APPROACH],
+    ["team-note-title", TEAM_NOTE],
+  ]) {
+    const block = plain(section(id));
+    if (!new RegExp(`<h2[^>]*id="${id}"[^>]*>`).test(block))
+      fail(`section ${id} has no labelled <h2>`);
+    for (const text of [copy.title, ...copy.paragraphs]) {
+      if (!block.includes(text)) fail(`section ${id} has no «${text}»`);
+    }
   }
+  if (!section("story-approach-title").includes(STORY_APPROACH.notYet))
+    fail("the story approach has no beta status");
+  if (section("team-note-title").includes(STORY_APPROACH.badge))
+    fail("the team note must not be marked «Концепт»");
+  const order = [
+    "beta-tabs-title",
+    "story-approach-title",
+    "impact-title",
+    "faq-title",
+    "team-note-title",
+    "beta-title",
+  ].map((id) => home.indexOf(section(id)));
+  if (order.some((offset, index) => index > 0 && offset <= order[index - 1]))
+    fail("the story approach and team note are not in the required order");
+  if (/aria-labelledby="path-title"|Путь истории:|22 этап/.test(home))
+    fail("index.html still advertises the path of 22 stages");
   const faq = section("faq-title");
   if (
     count(faq, "<details") < 5 ||

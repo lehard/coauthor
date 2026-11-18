@@ -17,12 +17,12 @@ const R = 112;
 
 const NODES = [
   ...IMPACTED.map((doc) => ({
-    n: doc.n,
+    id: doc.id,
     short: doc.short,
-    verdict: doc.verdict as "stale" | "conflict" | "ok",
+    verdict: doc.verdict,
   })),
   ...UNTOUCHED.map((doc) => ({
-    n: doc.n,
+    id: doc.id,
     short: doc.short,
     verdict: "ok" as const,
   })),
@@ -53,6 +53,17 @@ export function Impact() {
 
   const changed = stage.kind !== "idle";
   const done = stage.kind === "done";
+  function toggleDecision() {
+    if (changed) {
+      setStage({ kind: "idle" });
+      setDrawn(false);
+      return;
+    }
+    setStage(
+      prefersReducedMotion() ? { kind: "done" } : { kind: "scanning", step: 0 },
+    );
+  }
+
   // Lines get `data-draw` first and their group `data-in` a frame later, so the CSS transition can run.
   const [drawn, setDrawn] = useState(false);
   useEffect(() => {
@@ -93,7 +104,7 @@ export function Impact() {
         <div className="grid items-start gap-8 lg:grid-cols-[1.1fr_1fr]">
           <div className="flex flex-col gap-5 rounded-2xl bg-paper p-6 shadow-paper ring-1 ring-border">
             <p className="caption-3 text-muted-foreground uppercase">
-              {DECISION.document} · {DECISION.question}
+              {DECISION.document}
             </p>
             <div className="flex flex-col gap-2 font-serif text-xl text-paper-foreground">
               {changed ? (
@@ -110,32 +121,13 @@ export function Impact() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {changed ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStage({ kind: "idle" });
-                    setDrawn(false);
-                  }}
-                  className="rounded-full px-4 py-2 button-sm text-foreground ring-1 ring-border-strong hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                >
-                  {IMPACT_COPY.undo}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setStage(
-                      prefersReducedMotion()
-                        ? { kind: "done" }
-                        : { kind: "scanning", step: 0 },
-                    )
-                  }
-                  className="rounded-full bg-primary px-4 py-2 button-sm text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.98]"
-                >
-                  {IMPACT_COPY.change}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={toggleDecision}
+                className={`rounded-full px-4 py-2 button-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${changed ? "text-foreground ring-1 ring-border-strong hover:bg-muted" : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"}`}
+              >
+                {changed ? IMPACT_COPY.undo : IMPACT_COPY.change}
+              </button>
             </div>
             {changed ? (
               <ol
@@ -151,7 +143,7 @@ export function Impact() {
                       className={`flex justify-between gap-4 body-6 transition-opacity duration-300 ease-fade ${reached ? "opacity-100" : "opacity-30"}`}
                     >
                       <span className="text-foreground">{item.step}</span>
-                      <span className="text-muted-foreground tabular-nums">
+                      <span className="whitespace-nowrap text-muted-foreground tabular-nums">
                         {reached ? item.result : "…"}
                       </span>
                     </li>
@@ -171,7 +163,7 @@ export function Impact() {
               <g data-in={drawn ? "" : undefined}>
                 {points.map((point) => (
                   <line
-                    key={`line-${point.n}`}
+                    key={point.id}
                     x1={CX}
                     y1={CY}
                     x2={point.x}
@@ -200,7 +192,7 @@ export function Impact() {
               </text>
               {points.map((point) => (
                 <g
-                  key={`node-${point.n}`}
+                  key={point.id}
                   className={
                     done ? TONE[point.verdict] : "text-muted-foreground"
                   }
@@ -208,25 +200,16 @@ export function Impact() {
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r={17}
+                    r={7}
                     className="fill-paper"
                     stroke="currentColor"
                     strokeWidth={done && point.verdict !== "ok" ? 2.5 : 1.2}
                   />
                   <text
                     x={point.x}
-                    y={point.y + 4}
+                    y={point.y + (point.y > CY ? 24 : -15)}
                     textAnchor="middle"
-                    fill="currentColor"
-                    className="text-[11px] font-semibold"
-                  >
-                    {point.n}
-                  </text>
-                  <text
-                    x={point.x}
-                    y={point.y + (point.y > CY ? 32 : -24)}
-                    textAnchor="middle"
-                    className="fill-muted-foreground text-[10px]"
+                    className="fill-muted-foreground text-[13px]"
                   >
                     {point.short}
                   </text>
@@ -245,7 +228,7 @@ export function Impact() {
           <div className="site-fade-in grid gap-6 lg:grid-cols-3">
             {IMPACTED.map((doc) => (
               <article
-                key={doc.n}
+                key={doc.id}
                 className={`flex flex-col gap-2 rounded-2xl p-5 ring-1 ${doc.verdict === "stale" ? "bg-status-stale-subtle ring-status-stale-border" : "bg-status-conflict-subtle ring-status-conflict-border"}`}
               >
                 <p className={`caption-3 uppercase ${TONE[doc.verdict]}`}>
@@ -253,9 +236,7 @@ export function Impact() {
                     ? IMPACT_COPY.stale
                     : IMPACT_COPY.conflict}
                 </p>
-                <h3 className="title-2 text-foreground">
-                  {doc.n}. {doc.name}
-                </h3>
+                <h3 className="title-2 text-foreground">{doc.name}</h3>
                 <p className="font-serif body-6 text-foreground">{doc.quote}</p>
                 <p className="body-6 text-muted-foreground">{doc.why}</p>
               </article>
@@ -266,7 +247,7 @@ export function Impact() {
               </p>
               <ul className="grid gap-2 sm:grid-cols-2">
                 {UNTOUCHED.map((doc) => (
-                  <li key={doc.n} className="body-6 text-foreground">
+                  <li key={doc.id} className="body-6 text-foreground">
                     <span className="font-medium">{doc.name}</span> —{" "}
                     <span className="text-muted-foreground">{doc.why}</span>
                   </li>

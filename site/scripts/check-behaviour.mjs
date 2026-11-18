@@ -4,6 +4,9 @@
 //   SITE_URL=http://127.0.0.1:5174 CHROMIUM_PATH=<Chromium> npm run check:behaviour --prefix site
 import { chromium } from "playwright-core";
 
+import { IMPACTED, UNTOUCHED } from "../src/content/concept.ts";
+import { IMPACT_COPY, STORY_APPROACH, TEAM_NOTE } from "../src/content/copy.ts";
+
 const SITE_URL = process.env.SITE_URL;
 const CHROMIUM_PATH = process.env.CHROMIUM_PATH;
 if (!SITE_URL)
@@ -29,6 +32,115 @@ async function scrollThrough(page) {
     await page.waitForTimeout(60);
   }
   await page.waitForTimeout(800);
+}
+
+async function checkEditorialSections(page, name) {
+  for (const copy of [STORY_APPROACH, TEAM_NOTE]) {
+    const section = page.getByRole("region", { name: copy.title, exact: true });
+    await section.getByRole("heading", { name: copy.title }).waitFor();
+    for (const text of copy.paragraphs) {
+      const paragraph = section.getByText(text, { exact: true });
+      await paragraph.waitFor();
+      const fits = await paragraph.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return (
+          rect.left >= 0 && rect.right <= document.documentElement.clientWidth
+        );
+      });
+      check(fits, `${name}: a paragraph in «${copy.title}» overflows`);
+    }
+    const opacity = await section
+      .locator("[data-reveal]")
+      .evaluate((element) => getComputedStyle(element).opacity);
+    check(opacity === "1", `${name}: «${copy.title}» is not fully shown`);
+  }
+  const approach = page.getByRole("region", { name: STORY_APPROACH.title });
+  await approach.getByText(STORY_APPROACH.badge, { exact: true }).waitFor();
+  await approach.getByText(STORY_APPROACH.notYet, { exact: true }).waitFor();
+}
+
+async function checkImpactDiagram(impact, name) {
+  const diagram = impact.getByRole("img");
+  const labels = await diagram.locator("text").allTextContents();
+  const expected = [
+    "Тема",
+    ...[...IMPACTED, ...UNTOUCHED].map((doc) => doc.short),
+  ];
+  check(
+    labels.length === expected.length &&
+      expected.every((label) => labels.includes(label)),
+    `${name}: unexpected impact diagram labels: ${labels.join(", ")}`,
+  );
+  const readable = await diagram.evaluate((svg) => {
+    const frame = svg.getBoundingClientRect();
+    const boxes = [...svg.querySelectorAll("text")].map((label) =>
+      label.getBoundingClientRect(),
+    );
+    return boxes.every(
+      (box, index) =>
+        box.left >= frame.left &&
+        box.right <= frame.right &&
+        box.top >= frame.top &&
+        box.bottom <= frame.bottom &&
+        !boxes
+          .slice(index + 1)
+          .some(
+            (other) =>
+              box.left < other.right &&
+              box.right > other.left &&
+              box.top < other.bottom &&
+              box.bottom > other.top,
+          ),
+    );
+  });
+  check(
+    readable,
+    `${name}: impact labels overlap or extend beyond the diagram`,
+  );
+}
+
+async function checkImpact(page, name) {
+  const impact = page.getByRole("region", {
+    name: IMPACT_COPY.title,
+    exact: true,
+  });
+  await checkImpactDiagram(impact, `${name}, original decision`);
+  const change = impact.getByRole("button", { name: IMPACT_COPY.change });
+  await change.focus();
+  await page.keyboard.press("Enter");
+  const summary = impact.getByText("Задето 3 документа из 7", { exact: true });
+  await summary.waitFor({ timeout: 5000 });
+  check(
+    (await impact.getByText(IMPACT_COPY.stale, { exact: true }).count()) ===
+      2 &&
+      (await impact
+        .getByText(IMPACT_COPY.conflict, { exact: true })
+        .count()) === 1,
+    `${name}: impact results did not show both document statuses`,
+  );
+  for (const doc of IMPACTED) {
+    await impact
+      .getByRole("heading", { name: doc.name, exact: true })
+      .waitFor();
+  }
+  for (const doc of UNTOUCHED) {
+    await impact
+      .getByRole("listitem")
+      .getByText(doc.name, { exact: true })
+      .waitFor();
+  }
+  await checkImpactDiagram(impact, `${name}, changed decision`);
+  const undo = impact.getByRole("button", { name: IMPACT_COPY.undo });
+  check(
+    await undo.evaluate((button) => document.activeElement === button),
+    `${name}: impact button lost keyboard focus`,
+  );
+  await page.keyboard.press("Space");
+  await change.waitFor();
+  await summary.waitFor({ state: "detached" });
+  await impact
+    .getByText("7 документов опираются на тему", { exact: true })
+    .waitFor();
 }
 
 const browser = await chromium.launch({ executablePath: CHROMIUM_PATH });
@@ -106,12 +218,14 @@ try {
       `${name}px: the «one action» cards stand in ${columns} columns`,
     );
     await scrollThrough(page);
+    await checkEditorialSections(page, `${name}px`);
     const overflow = await page.evaluate(
       () =>
         document.documentElement.scrollWidth -
         document.documentElement.clientWidth,
     );
     check(overflow === 0, `${name}px: horizontal scroll of ${overflow}px`);
+    await checkImpact(page, `${name}px`);
     check(
       errors.length === 0,
       `${name}px: errors in the page: ${errors.join("; ")}`,
@@ -280,39 +394,6 @@ try {
     "tabs: no visible panel",
   );
 
-  // The story path: the line is drawn, a stage shows its concept frame.
-  const path = page.locator("section[aria-labelledby='path-title']");
-  check(
-    (await path.locator("svg[data-in]").count()) === 1,
-    "path: the line was not drawn",
-  );
-  await path.getByRole("button", { name: "13", exact: true }).click();
-  await page.waitForTimeout(300);
-  check(
-    ((await path.locator("figure img").getAttribute("src")) ?? "").includes(
-      "timeline",
-    ),
-    "path: stage 13 does not show the timeline frame",
-  );
-  await path.getByRole("button", { name: "1", exact: true }).click();
-  await page.waitForTimeout(300);
-  check(
-    ((await path.locator("figure img").getAttribute("src")) ?? "").includes(
-      "impulses",
-    ),
-    "path: stage 1 does not show the frame of the impulses",
-  );
-
-  // The impact of a changed decision.
-  const impact = page.locator("section[aria-labelledby='impact-title']");
-  await impact.getByRole("button", { name: "Изменить решение" }).click();
-  const impacted = await impact
-    .getByText("Задето 3 документа из 7")
-    .waitFor({ timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-  check(impacted, "impact: no «Задето 3 документа из 7»");
-
   // The form still reports an accepted request (the API answer is stubbed here).
   await page.route("**/os/api/v1/beta-requests", (route) =>
     route.fulfill({
@@ -335,17 +416,31 @@ try {
   await page.close();
 
   // Without JavaScript and with reduced motion everything is shown in its end state.
-  for (const [name, options] of [
-    ["no JavaScript", { javaScriptEnabled: false }],
-    ["reduced motion", { reducedMotion: "reduce" }],
+  for (const [name, viewport, options] of [
+    [
+      "no JavaScript",
+      { width: 1440, height: 900 },
+      { javaScriptEnabled: false },
+    ],
+    [
+      "no JavaScript at 390px",
+      { width: 390, height: 844 },
+      { javaScriptEnabled: false },
+    ],
+    [
+      "reduced motion",
+      { width: 1440, height: 900 },
+      { reducedMotion: "reduce" },
+    ],
   ]) {
     const context = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
+      viewport,
       ...options,
     });
     const view = await context.newPage();
     await view.goto(SITE_URL, { waitUntil: "load" });
     await view.waitForTimeout(500);
+    await checkEditorialSections(view, name);
     const hidden = await view.evaluate(
       () =>
         [...document.querySelectorAll("[data-reveal], [data-word]")].filter(
