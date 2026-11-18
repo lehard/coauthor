@@ -452,15 +452,36 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .team-grid { display: grid; gap: 32px; }
 .letter { display: flex; flex-direction: column; gap: 20px; max-width: 640px; }
 .team-head { display: flex; flex-direction: column; gap: 24px; }
-.epigraph { color: var(--muted-foreground); max-width: 28em; }
-.epigraph figcaption { margin-top: 4px; font-weight: 500; }
+/* The epigraph is set as a quotation: serif, a rule on the left, the name under it. */
+.epigraph { max-width: 26em; padding-left: 20px; border-left: 2px solid var(--border-strong); color: var(--muted-foreground); font-family: var(--font-prose); font-size: 17px; line-height: 28px; text-wrap: pretty; }
+.epigraph figcaption { margin-top: 8px; font-family: var(--font-ui); font-size: 14px; line-height: 20px; font-weight: 500; }
+/* The first sentence of the letter is its opening line. */
+.lead-line { font-family: var(--font-prose); font-weight: 500; font-size: 26px; line-height: 36px; letter-spacing: -0.01em; text-wrap: balance; }
 .prose { font-family: var(--font-prose); font-size: 20px; line-height: 32px; text-wrap: pretty; }
-.credo { margin-top: 48px !important; font-family: var(--font-prose); font-weight: 600; letter-spacing: -0.015em; font-size: 30px; line-height: 40px; text-wrap: balance; max-width: 22em; }
+/* The last sentence of the letter is shown as a title on a cinema screen: a dark wide card under the light of a projector. */
+.screen { position: relative; overflow: hidden; margin-top: 56px; padding: 56px 24px; border-radius: 20px; background: var(--desk); color: var(--foreground); text-align: center; }
+.screen::before { content: ""; position: absolute; inset: 0; background: radial-gradient(70% 90% at 50% 0%, oklch(0.36 0.055 70 / 0.4), transparent 70%); pointer-events: none; }
+.screen::after { content: ""; position: absolute; inset: 0; background-image: var(--grain-image); opacity: 0.1; pointer-events: none; }
+.credo { position: relative; z-index: 1; margin: 0 auto !important; max-width: 20em; font-family: var(--font-prose); font-weight: 600; letter-spacing: -0.015em; font-size: 28px; line-height: 38px; text-wrap: balance; }
+@media (min-width: 768px) {
+  .screen { padding: 88px 48px; }
+  .credo { font-size: 36px; line-height: 48px; }
+}
 .js .credo .w { opacity: 0.28; transition: opacity 0.6s var(--ease); transition-delay: calc(var(--i) * 70ms); }
 .js .credo[data-in] .w { opacity: 1; }
+/* The heading with the epigraph stands beside the letter as soon as the heading fits its column in two lines. */
+@media (min-width: 880px) {
+  .team-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; }
+}
 @media (min-width: 1024px) {
-  .team-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; }
-  .credo { margin-top: 96px !important; font-size: 48px; line-height: 60px; }
+  .team-grid { gap: 56px; }
+  .lead-line { font-size: 32px; line-height: 44px; }
+  .screen { margin-top: 88px; padding: 104px 72px; }
+  .credo { font-size: 44px; line-height: 56px; }
+}
+@media (min-width: 1280px) {
+  .screen { padding: 120px 96px; }
+  .credo { font-size: 48px; line-height: 60px; }
 }
 
 /* ---------- 6. Beta ---------- */
@@ -927,17 +948,20 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     <div class="team-grid" data-reveal>
       <div class="team-head">
         <h2 class="h2" id="team-title">Зачем мы делаем Соавтора</h2>
-        <figure class="epigraph small">
+        <figure class="epigraph">
           <blockquote>«Мы вначале имеем интеллектуальный замысел. И наша задача — опустить его в область сердца, не задерживаясь по дороге в области мозга.»</blockquote>
           <figcaption>Ингмар Бергман</figcaption>
         </figure>
       </div>
       <div class="letter">
-        <p class="prose">Мы любим кино за редкую возможность увидеть мир глазами другого человека. За этим взглядом стоит целая жизнь. Кого автор любил, во что когда-то верил, что до сих пор пытается понять. Даже если в истории выдумано всё до последней детали, в ней есть то, что мог привнести только этот человек.</p>
+        <p class="lead-line">Мы любим кино за редкую возможность увидеть мир глазами другого человека.</p>
+        <p class="prose">За этим взглядом стоит целая жизнь. Кого автор любил, во что когда-то верил, что до сих пор пытается понять. Даже если в истории выдумано всё до последней детали, в ней есть то, что мог привнести только этот человек.</p>
         <p class="prose">Из этой любви вырос Соавтор. Его создают профессиональные авторы и инженеры. Мы знаем сценарную работу изнутри и умеем строить ИИ. Вместе мы решаем, где технология может помочь, и даём автору эту поддержку прямо там, где он пишет.</p>
       </div>
     </div>
-    <p class="credo" id="credo">Мы хотим, чтобы ИИ помогал авторам доводить свои истории до конца. И чтобы в кино звучало больше авторских голосов.</p>
+    <div class="screen night" data-reveal>
+      <p class="credo" id="credo">Мы хотим, чтобы ИИ помогал авторам доводить свои истории до конца. И чтобы в кино звучало больше авторских голосов.</p>
+    </div>
   </div>
 </section>
 
@@ -1052,7 +1076,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     credo.append(span, " ");
   });
   if (reduce) credo.setAttribute("data-in", "");
-  else new IntersectionObserver(([e], io) => { if (e.isIntersecting) { credo.setAttribute("data-in", ""); io.disconnect(); } }, { threshold: 0.6 }).observe(credo);
+  else new IntersectionObserver(([e], io) => { if (e.isIntersecting) { credo.setAttribute("data-in", ""); io.disconnect(); } }, { threshold: 0.6, rootMargin: "0px 0px -25% 0px" }).observe(credo);
 
   /* 6. The form of the mock: the checks of the real form, no request is sent. */
   const form = $("#beta-form");
