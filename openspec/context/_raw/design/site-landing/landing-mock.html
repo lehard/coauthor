@@ -293,18 +293,19 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .ask-panel { display: none; position: relative; padding-left: 28px; }
 #ask-1:checked ~ .ask-stage [data-q="1"], #ask-2:checked ~ .ask-stage [data-q="2"], #ask-3:checked ~ .ask-stage [data-q="3"] { display: block; }
 .ask-sheet { position: relative; padding: 20px; border-radius: 8px; background: var(--paper); box-shadow: var(--shadow-paper); font-size: 14px; line-height: 20px; --lh: 20px; --ind-d: 3ch; --ind-p: 8ch; --ind-c: 13ch; }
-.ask-sheet::after { content: ""; position: absolute; left: -21px; top: 40px; bottom: -30px; width: 2px; border-radius: 2px; background: var(--ai-border); }
+/* The rail runs from the top edge of the sheet to the dot of the answer. It is ::before so that the dots of the marked lines paint over it. */
+.ask-sheet::before { content: ""; position: absolute; left: -21px; top: 0; bottom: -34px; width: 2px; border-radius: 2px; background: var(--ai-border); }
 .ex + .ex { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border-strong); }
 .ex-meta { font-family: var(--font-ui); font-weight: 500; color: var(--muted-foreground); margin-bottom: 8px; }
 .ex .sc-char { margin-top: 0 !important; }
 .ex .sc-dialogue { max-width: 34ch; }
-.ex .gap { margin-top: var(--lh); }
+.ex .gap { margin-top: var(--lh) !important; }
 .ex-fact { font-family: var(--font-ui); font-size: 16px; line-height: 24px; --lh: 24px; }
 .ask-sheet mark, .ask-sheet ins { background: var(--ai-subtle); color: inherit; text-decoration: none; border-radius: 2px; box-shadow: 0 0 0 2px var(--ai-subtle), 0 2px 0 2px var(--ai-border); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .ask-sheet s { color: var(--muted-foreground); text-decoration-color: var(--destructive); }
 .hit::before, .ask-answer::before {
   content: ""; position: absolute; left: -25px; width: 10px; height: 10px; margin-top: calc(var(--lh) / 2 - 5px); border-radius: 50%;
-  background: var(--ai); box-shadow: 0 0 0 3px var(--panel);
+  background: var(--ai);
 }
 .ask-answer { position: relative; margin-top: 24px; --lh: 20px; }
 .who { display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--muted-foreground); }
@@ -321,14 +322,14 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .ask-panel { padding-left: 0; min-height: 360px; grid-template-columns: minmax(0, 11fr) minmax(0, 10fr); column-gap: 96px; align-items: center; }
   #ask-1:checked ~ .ask-stage [data-q="1"], #ask-2:checked ~ .ask-stage [data-q="2"], #ask-3:checked ~ .ask-stage [data-q="3"] { display: grid; }
   .ask-sheet { padding: 32px 40px; font-size: 16px; line-height: 24px; --lh: 24px; --ind-d: 8ch; --ind-p: 13ch; --ind-c: 18ch; }
-  .ask-sheet::after { display: none; }
+  .ask-sheet::before { display: none; }
   .ex + .ex { margin-top: 24px; padding-top: 24px; }
   .hit::before {
-    left: calc(100% - 5px); width: 53px; border-radius: 0; box-shadow: none;
+    left: calc(100% - 5px); width: 53px; border-radius: 0;
     background: radial-gradient(circle at 5px 50%, var(--ai) 0 4.5px, transparent 5px), linear-gradient(var(--ai-border), var(--ai-border)) 0 50% / 100% 2px no-repeat;
   }
   .ask-answer { margin-top: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
-  .ask-answer::before { left: -48px; top: 0; bottom: 0; width: 2px; height: auto; margin: 0; border-radius: 2px; background: var(--ai-border); box-shadow: none; }
+  .ask-answer::before { left: -48px; top: 0; bottom: 0; width: 2px; height: auto; margin: 0; border-radius: 2px; background: var(--ai-border); }
   .ask-answer .answer { font-size: 20px; line-height: 32px; }
 }
 
@@ -688,13 +689,18 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
           <div class="ask-sheet script">
             <div class="ex">
               <p class="ex-meta small">Сцена 6 · Кухня</p>
-              <p class="hit">Свет только над раковиной. ВЕРА моет чашку. <s>Чашка давно чистая. Она всё равно трёт её губкой.</s></p>
-              <p class="gap hit"><ins>Чашка давно чистая — Вера всё равно её трёт.</ins></p>
+              <p class="hit">Свет только над раковиной. ВЕРА моет чашку. <mark>Чашка давно чистая. Она всё равно трёт её губкой.</mark></p>
+              <p class="sc-char gap"><s>АНЯ (З.К.)</s></p>
+              <p class="sc-dialogue hit"><s>Мам, ты опять не спишь?</s></p>
+              <p class="gap">Входит АНЯ, в куртке, с рюкзаком. Ставит рюкзак на стул.</p>
+              <p class="sc-char gap">ВЕРА</p>
+              <p class="sc-paren">(не оборачиваясь)</p>
+              <p class="sc-dialogue">Я же просила звонить, когда едешь так поздно.</p>
             </div>
           </div>
           <div class="ask-answer">
             <p class="who who-ai">Соавтор</p>
-            <p class="answer">В сцене 6 есть ремарка: «Чашка давно чистая. Она всё равно трёт её губкой». Можно короче: «Чашка давно чистая — Вера всё равно её трёт». Жест останется.</p>
+            <p class="answer">В сцене 6 можно убрать реплику Ани «Мам, ты опять не спишь?». Что Вера не спит, уже видно: она трёт давно чистую чашку. Без реплики Аня входит молча, и первой говорит Вера.</p>
             <p class="eg small muted">Пример ответа</p>
           </div>
         </div>
