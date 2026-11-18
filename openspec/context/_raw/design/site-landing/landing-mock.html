@@ -340,7 +340,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .know { background: var(--desk); color: var(--foreground); }
 .know-head { display: grid; gap: 20px; }
 .know-head .body-lg { max-width: 40em; }
-.board { position: relative; margin-top: 48px; display: grid; gap: 32px; --floor: var(--panel); }
+.board { position: relative; margin-top: 48px; display: grid; gap: 40px; --floor: var(--panel); }
+.chalk-defs { position: absolute; }
 .talk { min-width: 0; }
 .turn { margin-top: 24px; }
 .turn .who { margin-bottom: 8px !important; }
@@ -348,81 +349,67 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .reply { font-size: 18px; line-height: 28px; text-wrap: pretty; }
 .punch { margin-top: 12px !important; font-family: var(--font-prose); font-weight: 600; font-size: 30px; line-height: 40px; letter-spacing: -0.015em; }
 .lg-br { display: none; }
+.ph, .note-from .q {
+  text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--ai); text-decoration-thickness: 2px; text-underline-offset: 5px;
+}
 .ph {
-  text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--ai); text-decoration-thickness: 2px; text-underline-offset: 5px; border-radius: 3px; cursor: pointer;
-  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  border-radius: 3px; cursor: pointer; -webkit-box-decoration-break: clone; box-decoration-break: clone;
   transition: background-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
 .punch .ph { text-underline-offset: 8px; }
 .ph:hover { background: color-mix(in oklch, var(--ai-subtle) 60%, transparent); }
-.ph.is-on { background: var(--ai-subtle); box-shadow: 0 0 0 3px var(--ai-subtle); text-decoration-style: solid; }
-.punch .ph:hover, .punch .ph.is-on { background: transparent; box-shadow: none; }
-.punch .ph.is-on { text-decoration-color: var(--ai); text-decoration-thickness: 3px; }
+.ph.is-on, .ph.is-hot { background: var(--ai-subtle); box-shadow: 0 0 0 3px var(--ai-subtle); text-decoration-style: solid; }
+.punch .ph:hover, .punch .ph.is-on, .punch .ph.is-hot { background: transparent; box-shadow: none; }
+.punch .ph.is-on, .punch .ph.is-hot { text-decoration-color: var(--ai); text-decoration-thickness: 3px; }
 
-.notes { min-width: 0; }
-.notes-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.stepper { display: none; align-items: center; gap: 4px; }
-.js .stepper { display: flex; }
-.step-btn { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; cursor: pointer; transition: background-color 0.3s var(--ease); }
-.step-btn:hover { background: var(--muted); }
-.step-dots { display: flex; align-items: center; }
-.step-dot { width: 20px; height: 36px; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; padding: 0; }
-.step-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); transition: background-color 0.3s var(--ease), transform 0.3s var(--ease); }
-.step-dot.is-on::before { background: var(--ai); transform: scale(1.4); }
-.note-list { margin-top: 8px !important; display: grid; gap: 16px; }
+/* The storyboard: three chalk frames of the same floor, each with its note. */
+.story { min-width: 0; }
+.frames { margin-top: 16px !important; display: grid; gap: 40px; }
+.frame { scroll-margin-top: 104px; }
+.frame-pic { position: relative; border-radius: 16px; overflow: hidden; background: radial-gradient(90% 70% at 50% 30%, oklch(0.36 0.055 70 / 0.3), transparent), var(--floor); box-shadow: 0 0 0 1px var(--border); }
+.frame-pic::before { content: ""; position: absolute; inset: 0; background-image: var(--grain-image); opacity: 0.1; pointer-events: none; }
+.frame-svg { position: relative; display: block; width: 100%; height: auto; color: var(--foreground); }
+.frame-svg text { font-family: var(--font-ui); stroke: none; }
+.f-mark { font-weight: 600; font-size: 22px; text-anchor: middle; dominant-baseline: central; fill: currentColor; }
+.f-side, .f-name { font-size: 14px; text-anchor: middle; fill: var(--muted-foreground); }
+.f-time { font-size: 15px; font-weight: 500; fill: currentColor; }
+.frame-svg .f-say { font-family: var(--font-prose); font-weight: 600; font-size: 16px; text-anchor: end; fill: currentColor; }
+.f-num circle { fill: var(--ai); }
+.f-num text { font-size: 14px; font-weight: 700; text-anchor: middle; dominant-baseline: central; fill: var(--desk); }
+.f-drop, .f-hand { transform-box: fill-box; transform-origin: center; }
+.note { margin-top: 16px; }
 .note-title { font-weight: 600; color: var(--ai); }
-.note-text { margin-top: 4px !important; color: var(--foreground); max-width: 34em; }
-.js .note-list { min-height: 124px; display: block; }
-.js .note { display: none; }
-.js .note.is-on { display: block; animation: note-in 0.5s var(--ease) both; }
-@keyframes note-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.note-text { margin-top: 4px !important; max-width: 34em; }
+.note-from { margin-top: 6px !important; color: var(--muted-foreground); }
+.note-from .q { color: var(--foreground); text-underline-offset: 4px; }
+.reasons { margin-top: 20px !important; display: grid; gap: 20px; }
+.reason { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 12px; scroll-margin-top: 40vh; }
+.num { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ai); color: var(--desk); font-size: 14px; line-height: 1; font-weight: 700; }
+/* With scripts the note in the middle of the screen is the marked one, like its phrase in the dialogue. */
+.js .story .note-title { color: var(--foreground); transition: color 0.3s var(--ease); }
+.js .story .is-on .note-title, .js .story .is-hot .note-title { color: var(--ai); }
+.board-cap { margin-top: 32px !important; }
 
-.floor { position: relative; border-radius: 16px; background: radial-gradient(90% 45% at 50% 22%, oklch(0.36 0.055 70 / 0.3), transparent), var(--floor); box-shadow: 0 0 0 1px var(--border); overflow: hidden; }
-.floor::before { content: ""; position: absolute; inset: 0; background-image: var(--grain-image); opacity: 0.1; pointer-events: none; }
-.floor-sides { position: absolute; z-index: 1; inset: 12px 0 auto 0; display: grid; grid-template-columns: 1fr 1fr; text-align: center; font-size: 13px; line-height: 16px; color: var(--muted-foreground); }
-.plan { position: relative; display: block; width: 100%; height: auto; color: var(--foreground); }
-.plan text { font-family: var(--font-ui); stroke: none; }
-.plan .mark { font-weight: 600; font-size: 22px; text-anchor: middle; dominant-baseline: central; fill: currentColor; }
-.plan .lbl { font-size: 13px; fill: var(--muted-foreground); transition: fill 0.5s var(--ease), opacity 0.5s var(--ease); }
-.plan .line { stroke-dasharray: 100; }
-.plan .m, .plan .t { transition: opacity 0.5s var(--ease); }
-.board[data-m="a"] .m:not(.m-a), .board[data-m="a"] .t:not(.t-a),
-.board[data-m="b"] .m:not(.m-b), .board[data-m="b"] .t:not(.t-b),
-.board[data-m="c"] .m:not(.m-c), .board[data-m="c"] .t:not(.t-c) { opacity: 0.45; }
-.board[data-m="a"] .l-a, .board[data-m="b"] .l-b, .board[data-m="c"] .l-c { fill: var(--foreground); }
-/* a phone looks at one moment at a time: the plan slides along the chalk line, the other moments are hidden */
-@media (max-width: 767px) {
-  .js .floor { aspect-ratio: 320 / 248; }
-  .js .plan { transform: translateY(var(--pan, -28.8%)); transition: transform 0.9s var(--ease); }
-  .js .board[data-m="a"] .m:not(.m-a), .js .board[data-m="a"] .t:not(.t-a), .js .board[data-m="a"] .lbl:not(.l-a),
-  .js .board[data-m="b"] .m:not(.m-b), .js .board[data-m="b"] .t:not(.t-b), .js .board[data-m="b"] .lbl:not(.l-b),
-  .js .board[data-m="c"] .m:not(.m-c), .js .board[data-m="c"] .t:not(.t-c), .js .board[data-m="c"] .lbl:not(.l-c) { opacity: 0; }
-}
-.threads { display: none; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.threads path { fill: none; stroke: var(--ai); stroke-width: 2; stroke-linecap: round; }
-.threads circle { fill: var(--ai); }
-.board-cap { margin-top: 24px !important; }
-
-/* From a tablet up the whole floor stands beside the dialogue; the notes sit under the dialogue. */
+/* From a tablet up the dialogue stays in place while the frames scroll past it. */
 @media (min-width: 768px) {
-  .board { grid-template-columns: minmax(0, 1fr) 280px; grid-template-rows: auto 1fr; column-gap: 64px; row-gap: 0; align-items: start; }
-  .talk { grid-column: 1; grid-row: 1; }
-  .notes { grid-column: 1; grid-row: 2; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
-  .floor { grid-column: 2; grid-row: 1 / span 2; }
-  .turn:first-of-type { margin-top: 16px; }
+  .board { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 56px; align-items: start; }
+  .frames { gap: 48px; }
 }
-/* The thread needs every marked phrase to end its line, so the lines of the dialogue are set by hand from this width. */
-@media (min-width: 880px) {
-  .lg-br { display: inline; }
-  .js .threads { display: block; }
+@media (min-width: 768px) and (min-height: 600px) {
+  .talk { position: sticky; top: 104px; }
 }
 @media (min-width: 1024px) {
   .know-head { gap: 24px; }
-  .board { margin-top: 64px; grid-template-columns: minmax(0, 1fr) 372px; column-gap: 96px; }
-  .author-text { font-size: 30px; line-height: 40px; }
+  .board { margin-top: 64px; }
+  .board-cap { margin-top: 48px !important; }
+}
+/* The large type of the dialogue needs a column of 530 px: its hand-set lines must each stay on one line. */
+@media (min-width: 1180px) {
+  .board { column-gap: 72px; }
+  .author-text { font-size: 28px; line-height: 36px; }
   .reply { font-size: 20px; line-height: 32px; }
   .punch { font-size: 48px; line-height: 56px; }
-  .notes { margin-top: 40px; }
+  .lg-br { display: inline; }
 }
 
 /* ---------- 4. Draft ---------- */
@@ -529,14 +516,13 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .js .ask-panel .ask-answer > * { animation: rise 0.7s var(--ease) 0.35s both; }
   .js [data-reveal] { transition: opacity 0.8s var(--ease), transform 0.8s var(--ease); }
   .js [data-reveal]:not([data-in]) { opacity: 0; transform: translateY(32px); }
-  .threads path { transition: stroke-dashoffset 0.7s var(--ease); }
-  .js .board:not([data-in]) .line { stroke-dashoffset: 100; }
-  .js .board:not([data-in]) .m, .js .board:not([data-in]) .t, .js .board:not([data-in]) .lbl, .js .board:not([data-in]) .threads { opacity: 0; }
-  .js .board .line { transition: stroke-dashoffset 1.8s cubic-bezier(0.45, 0, 0.2, 1) 0.2s; }
-  .js .board[data-in] .m-a, .js .board[data-in] .t-a, .js .board[data-in] .l-a { animation: fade 0.7s var(--ease) 0.5s backwards; }
-  .js .board[data-in] .m-b, .js .board[data-in] .t-b, .js .board[data-in] .l-b { animation: fade 0.7s var(--ease) 1s backwards; }
-  .js .board[data-in] .m-c, .js .board[data-in] .t-c, .js .board[data-in] .l-c { animation: fade 0.7s var(--ease) 1.5s backwards; }
-  .js .board .threads { transition: opacity 0.6s var(--ease) 1.9s; }
+  .js .frame .f-draw { stroke-dasharray: 100; transition: stroke-dashoffset 1.4s cubic-bezier(0.45, 0, 0.2, 1) 0.2s; }
+  .js .frame:not([data-in]) .f-draw { stroke-dashoffset: 100; }
+  .js .frame .f-el, .js .frame .note, .js .frame .reasons { transition: opacity 0.6s var(--ease), transform 0.8s var(--ease); transition-delay: calc(0.2s + var(--d, 0) * 0.22s); }
+  .js .frame .note, .js .frame .reasons { --d: 3; }
+  .js .frame:not([data-in]) .f-el, .js .frame:not([data-in]) .note, .js .frame:not([data-in]) .reasons { opacity: 0; }
+  .js .frame:not([data-in]) .f-drop { transform: translateY(-18px) rotate(-14deg); }
+  .js .frame:not([data-in]) .f-hand { transform: translateY(-20px); }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -733,8 +719,20 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
       <p class="body-lg muted">Мы собираем в Соавторе знания, на изучение которых у одного человека ушли бы годы. От классических школ сценарного мастерства до исследований того, как зритель считывает подтекст и чувствует напряжение. Мы создаём ИИ, с которым всё это можно обсудить на материале сцены, над которой вы сейчас работаете.</p>
     </div>
 
-    <div class="board" data-reveal>
-      <div class="talk">
+    <div class="board">
+      <svg class="chalk-defs" width="0" height="0" aria-hidden="true" focusable="false">
+        <defs>
+          <filter id="chalk" filterUnits="userSpaceOnUse" x="-20" y="-20" width="520" height="310">
+            <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
+            <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="11" result="g"/>
+            <feColorMatrix in="g" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.2 1.75" result="mask"/>
+            <feComposite in="d" in2="mask" operator="in"/>
+          </filter>
+        </defs>
+      </svg>
+
+      <div class="talk" data-reveal>
         <p class="small muted">Редакционный пример</p>
         <div class="turn">
           <p class="who">Автор</p>
@@ -742,89 +740,146 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
         </div>
         <div class="turn">
           <p class="who who-ai"><span class="dot" aria-hidden="true"></span>Соавтор</p>
-          <p class="reply">Помните, как они делили отцовский гараж<br class="lg-br"> и <a class="ph" href="#note-2" data-n="2">провели мелом черту</a><br class="lg-br"> прямо по полу? Что, если в финале младший придёт<br class="lg-br"> в гараж, а <a class="ph" href="#note-3" data-n="3">старший уже лежит под его машиной?</a><br class="lg-br"> Из-под машины только <a class="ph" href="#note-4" data-n="4">рука высунется.</a></p>
+          <p class="reply">Помните, как они делили отцовский гараж и <a class="ph" href="#note-2" data-n="2">провели мелом черту</a> прямо по полу? Что, если в финале младший придёт в гараж, а <a class="ph" href="#note-3" data-n="3">старший уже лежит под его машиной?</a> Из‑под машины только <a class="ph" href="#note-4" data-n="4">рука высунется.</a></p>
           <p class="punch"><a class="ph" href="#note-5" data-n="5">«Дай на тринадцать».</a></p>
         </div>
       </div>
 
-      <div class="floor">
-        <p class="floor-sides" aria-hidden="true"><span>сторона старшего</span><span>сторона младшего</span></p>
-        <svg class="plan" viewBox="0 0 320 612" role="img" aria-label="Пол гаража сверху. Меловая черта делит его на сторону старшего и сторону младшего. В начале братья стоят каждый на своей стороне. После ссоры ключ лежит на черте. В финале старший лежит под машиной на стороне младшего, из-под машины видна рука.">
-          <defs>
-            <filter id="chalk" filterUnits="userSpaceOnUse" x="-20" y="-20" width="360" height="640">
-              <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="n"/>
-              <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
-              <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="11" result="g"/>
-              <feColorMatrix in="g" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.2 1.75" result="mask"/>
-              <feComposite in="d" in2="mask" operator="in"/>
-            </filter>
-          </defs>
-          <g filter="url(#chalk)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path class="line" pathLength="100" d="M160 12 C156 120 164 214 160 300 S156 492 160 600" stroke-width="5.5"/>
-            <g class="m m-a">
-              <circle cx="80" cy="112" r="22"/>
-              <circle cx="240" cy="112" r="22"/>
-              <g transform="translate(184 58) rotate(40)"><rect x="-15" y="-5" width="30" height="10" rx="3" fill="currentColor" stroke="none"/></g>
-              <g fill="currentColor" stroke="none"><circle cx="169" cy="76" r="1.6"/><circle cx="174" cy="84" r="1.2"/><circle cx="167" cy="88" r="1"/></g>
-            </g>
-            <g class="m m-b">
-              <circle cx="74" cy="262" r="22"/>
-              <circle cx="246" cy="338" r="22"/>
-              <g transform="translate(160 300) rotate(-28)" fill="var(--floor)">
-                <path d="M-28 -5 H16 V-12 H38 V-5 H27 V5 H38 V12 H16 V5 H-28 Z"/>
-                <circle cx="-36" cy="0" r="10"/>
-                <circle cx="-36" cy="0" r="3.5" fill="none"/>
-              </g>
-            </g>
-            <g class="m m-c">
-              <g fill="currentColor" stroke="none">
-                <rect x="196" y="420" width="7" height="24" rx="3"/><rect x="277" y="420" width="7" height="24" rx="3"/>
-                <rect x="196" y="486" width="7" height="24" rx="3"/><rect x="277" y="486" width="7" height="24" rx="3"/>
-              </g>
-              <rect x="202" y="402" width="76" height="126" rx="20" fill="var(--floor)"/>
-              <path d="M215 434 Q240 424 265 434"/>
-              <path d="M217 506 Q240 512 263 506"/>
-              <circle cx="240" cy="468" r="20" stroke-dasharray="3 6"/>
-              <path d="M233 529 v12 a7 7 0 0 0 14 0 v-12" fill="var(--floor)"/>
-              <circle cx="240" cy="574" r="20"/>
-            </g>
-          </g>
-          <g class="t t-a"><text class="mark" x="80" y="112">С</text><text class="mark" x="240" y="112">М</text></g>
-          <g class="t t-b"><text class="mark" x="74" y="262">С</text><text class="mark" x="246" y="338">М</text></g>
-          <g class="t t-c"><text class="mark" x="240" y="468">С</text><text class="mark" x="240" y="574">М</text></g>
-          <text class="lbl l-a" x="16" y="168">в начале</text>
-          <text class="lbl l-b" x="16" y="322">после ссоры</text>
-          <text class="lbl l-c" x="16" y="474">финал</text>
-        </svg>
-      </div>
+      <div class="story">
+        <p class="title">Откуда взялась эта подсказка?</p>
+        <ol class="frames">
 
-      <div class="notes">
-        <div class="notes-head">
-          <p class="title">Откуда взялась эта подсказка?</p>
-          <div class="stepper">
-            <button type="button" class="step-btn" data-step="-1" aria-label="Предыдущая связь"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg></button>
-            <div class="step-dots">
-              <button type="button" class="step-dot" data-n="1" aria-label="Характер братьев"></button>
-              <button type="button" class="step-dot" data-n="2" aria-label="В начале сценария"></button>
-              <button type="button" class="step-dot" data-n="3" aria-label="Взгляд зрителя"></button>
-              <button type="button" class="step-dot" data-n="4" aria-label="После ссоры"></button>
-              <button type="button" class="step-dot" data-n="5" aria-label="Подтекст реплики"></button>
+          <li class="frame" id="note-2" data-n="2" data-note>
+            <div class="frame-pic">
+              <svg class="frame-svg" viewBox="0 0 480 270" role="img" aria-label="Пол гаража сверху. Меловая черта делит его пополам: слева сторона старшего брата, справа сторона младшего, там стоит машина. Братья стоят каждый на своей стороне.">
+                <g filter="url(#chalk)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <g class="f-el" style="--d:0">
+                    <g fill="currentColor" stroke="none"><rect x="348" y="58" width="7" height="24" rx="3"/><rect x="429" y="58" width="7" height="24" rx="3"/><rect x="348" y="124" width="7" height="24" rx="3"/><rect x="429" y="124" width="7" height="24" rx="3"/></g>
+                    <rect x="354" y="40" width="76" height="126" rx="20" fill="var(--floor)"/>
+                    <path d="M367 72 Q392 62 417 72"/><path d="M369 144 Q392 150 415 144"/>
+                  </g>
+                  <path class="f-line f-draw" pathLength="100" d="M240 10 C237 62 243 104 240 135 S237 210 240 260" stroke-width="5"/>
+                  <g class="f-el" style="--d:4">
+                    <g transform="translate(264 228) rotate(40)"><rect x="-15" y="-5" width="30" height="10" rx="3" fill="currentColor" stroke="none"/></g>
+                    <g fill="currentColor" stroke="none"><circle cx="249" cy="243" r="1.6"/><circle cx="254" cy="250" r="1.2"/><circle cx="246" cy="254" r="1"/></g>
+                  </g>
+                  <g class="f-el" style="--d:5"><circle cx="120" cy="124" r="22"/><circle cx="300" cy="124" r="22"/></g>
+                </g>
+                <g class="f-el" style="--d:5">
+                  <text class="f-mark" x="120" y="124">С</text><text class="f-mark" x="300" y="124">М</text>
+                  <text class="f-name" x="120" y="170">старший</text><text class="f-name" x="300" y="170">младший</text>
+                </g>
+                <g class="f-el" style="--d:0">
+                  <text class="f-side" x="120" y="27">сторона старшего</text><text class="f-side" x="350" y="27">сторона младшего</text>
+                  <text class="f-time" x="18" y="252">в начале</text>
+                </g>
+              </svg>
             </div>
-            <button type="button" class="step-btn" data-step="1" aria-label="Следующая связь"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></button>
-          </div>
-        </div>
-        <ol class="note-list" aria-live="polite">
-          <li class="note" id="note-1" data-n="1" data-m="c"><p class="note-title">Характер братьев</p><p class="note-text">Автор хочет их помирить. Обоим проще починить машину, чем первыми заговорить о ссоре.</p></li>
-          <li class="note" id="note-2" data-n="2" data-m="a"><p class="note-title">В начале сценария</p><p class="note-text">Братья проводят мелом черту по полу отцовского гаража. У каждого теперь своя сторона.</p></li>
-          <li class="note" id="note-3" data-n="3" data-m="c"><p class="note-title">Взгляд зрителя</p><p class="note-text">Дэвид Бордуэлл писал о том, как зритель использует уже замеченные детали. Здесь зритель помнит черту. Теперь он видит, на чьей стороне гаража лежит старший.</p></li>
-          <li class="note" id="note-4" data-n="4" data-m="b"><p class="note-title">После ссоры</p><p class="note-text">Младшему нужен ключ. Старший кладёт его на черту. Из рук в руки они его уже не передают.</p></li>
-          <li class="note" id="note-5" data-n="5" data-m="c"><p class="note-title">Подтекст реплики</p><p class="note-text">На словах старшему нужен ключ. Для младшего это ещё и приглашение снова поработать вместе.</p></li>
+            <div class="note">
+              <p class="note-title">В начале сценария</p>
+              <p class="note-text">Братья проводят мелом черту по полу отцовского гаража. У каждого теперь своя сторона.</p>
+              <p class="small note-from">В диалоге: <span class="q">провели мелом черту</span></p>
+            </div>
+          </li>
+
+          <li class="frame" id="note-4" data-n="4" data-note>
+            <div class="frame-pic">
+              <svg class="frame-svg" viewBox="0 0 480 270" role="img" aria-label="Тот же пол гаража. Гаечный ключ лежит на меловой черте. Братья стоят по разные стороны, далеко друг от друга.">
+                <g filter="url(#chalk)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <g class="f-el" style="--d:0">
+                    <g fill="currentColor" stroke="none"><rect x="348" y="58" width="7" height="24" rx="3"/><rect x="429" y="58" width="7" height="24" rx="3"/><rect x="348" y="124" width="7" height="24" rx="3"/><rect x="429" y="124" width="7" height="24" rx="3"/></g>
+                    <rect x="354" y="40" width="76" height="126" rx="20" fill="var(--floor)"/>
+                    <path d="M367 72 Q392 62 417 72"/><path d="M369 144 Q392 150 415 144"/>
+                    <path class="f-line" d="M240 10 C237 62 243 104 240 135 S237 210 240 260" stroke-width="5"/>
+                  </g>
+                  <g class="f-el" style="--d:1"><circle cx="92" cy="96" r="22"/><circle cx="300" cy="190" r="22"/></g>
+                  <g transform="translate(240 138) rotate(-28)">
+                    <g class="f-el f-drop" style="--d:3" fill="var(--floor)">
+                      <path d="M-28 -5 H16 V-12 H38 V-5 H27 V5 H38 V12 H16 V5 H-28 Z"/>
+                      <circle cx="-36" cy="0" r="10"/>
+                      <circle cx="-36" cy="0" r="3.5" fill="none"/>
+                    </g>
+                  </g>
+                </g>
+                <g class="f-el" style="--d:1"><text class="f-mark" x="92" y="96">С</text><text class="f-mark" x="300" y="190">М</text></g>
+                <g class="f-el" style="--d:0">
+                  <text class="f-side" x="120" y="27">сторона старшего</text><text class="f-side" x="350" y="27">сторона младшего</text>
+                  <text class="f-time" x="18" y="252">после ссоры</text>
+                </g>
+              </svg>
+            </div>
+            <div class="note">
+              <p class="note-title">После ссоры</p>
+              <p class="note-text">Младшему нужен ключ. Старший кладёт его на черту. Из рук в руки они его уже не передают.</p>
+              <p class="small note-from">В диалоге: <span class="q">рука высунется</span></p>
+            </div>
+          </li>
+
+          <li class="frame">
+            <div class="frame-pic">
+              <svg class="frame-svg" viewBox="0 0 480 270" role="img" aria-label="Тот же пол гаража в финале. Старший перешёл черту и лежит под машиной на стороне младшего, из-под машины видна рука. Его место на своей стороне пусто. Младший стоит рядом с машиной. Реплика старшего: «Дай на тринадцать».">
+                <g filter="url(#chalk)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <g class="f-el" style="--d:0">
+                    <g fill="currentColor" stroke="none"><rect x="348" y="58" width="7" height="24" rx="3"/><rect x="429" y="58" width="7" height="24" rx="3"/><rect x="348" y="124" width="7" height="24" rx="3"/><rect x="429" y="124" width="7" height="24" rx="3"/></g>
+                    <path class="f-line" d="M240 10 C237 62 243 104 240 135 S237 210 240 260" stroke-width="5"/>
+                  </g>
+                  <path class="f-el f-hand" style="--d:4" d="M385 158 v22 a7 7 0 0 0 14 0 v-22" fill="var(--floor)"/>
+                  <g class="f-el" style="--d:0">
+                    <rect x="354" y="40" width="76" height="126" rx="20" fill="var(--floor)"/>
+                    <path d="M367 72 Q392 62 417 72"/><path d="M369 144 Q392 150 415 144"/>
+                  </g>
+                  <g class="f-el" style="--d:1"><circle cx="120" cy="124" r="22" stroke-dasharray="2 7" opacity="0.6"/></g>
+                  <g class="f-el" style="--d:2">
+                    <path d="M146 116 C 200 64, 280 58, 346 94" stroke-width="3.2" stroke-dasharray="0.1 9"/>
+                    <path d="M340.6 84.9 L347 95 L335 94.7"/>
+                  </g>
+                  <g class="f-el" style="--d:3"><circle cx="392" cy="103" r="20" stroke-dasharray="3 6"/></g>
+                  <g class="f-el" style="--d:5"><circle cx="444" cy="226" r="20"/></g>
+                </g>
+                <g class="f-el" style="--d:3"><text class="f-mark" x="392" y="103">С</text></g>
+                <g class="f-el" style="--d:5"><text class="f-mark" x="444" y="226">М</text></g>
+                <g class="f-el" style="--d:6"><text class="f-say" x="378" y="192">«Дай на</text><text class="f-say" x="378" y="212">тринадцать»</text></g>
+                <g class="f-el" style="--d:0">
+                  <text class="f-side" x="120" y="27">сторона старшего</text><text class="f-side" x="350" y="27">сторона младшего</text>
+                  <text class="f-time" x="18" y="252">финал</text>
+                </g>
+                <g class="f-el f-num" style="--d:7"><circle cx="456" cy="62" r="12"/><text x="456" y="62">1</text></g>
+                <g class="f-el f-num" style="--d:8"><circle cx="214" cy="104" r="12"/><text x="214" y="104">2</text></g>
+                <g class="f-el f-num" style="--d:9"><circle cx="292" cy="186" r="12"/><text x="292" y="186">3</text></g>
+              </svg>
+            </div>
+            <ol class="reasons">
+              <li class="reason" id="note-1" data-n="1" data-note>
+                <span class="num" aria-hidden="true">1</span>
+                <div>
+                  <p class="note-title">Характер братьев</p>
+                  <p class="note-text">Автор хочет их помирить. Обоим проще починить машину, чем первыми заговорить о ссоре.</p>
+                  <p class="small note-from">В диалоге: <span class="q">Ни один из них не скажет «прости»</span></p>
+                </div>
+              </li>
+              <li class="reason" id="note-3" data-n="3" data-note>
+                <span class="num" aria-hidden="true">2</span>
+                <div>
+                  <p class="note-title">Взгляд зрителя</p>
+                  <p class="note-text">Дэвид Бордуэлл писал о том, как зритель использует уже замеченные детали. Здесь зритель помнит черту. Теперь он видит, на чьей стороне гаража лежит старший.</p>
+                  <p class="small note-from">В диалоге: <span class="q">старший уже лежит под его машиной</span></p>
+                </div>
+              </li>
+              <li class="reason" id="note-5" data-n="5" data-note>
+                <span class="num" aria-hidden="true">3</span>
+                <div>
+                  <p class="note-title">Подтекст реплики</p>
+                  <p class="note-text">На словах старшему нужен ключ. Для младшего это ещё и приглашение снова поработать вместе.</p>
+                  <p class="small note-from">В диалоге: <span class="q">«Дай на тринадцать»</span></p>
+                </div>
+              </li>
+            </ol>
+          </li>
+
         </ol>
       </div>
-
-      <svg class="threads" aria-hidden="true"><path d=""/><circle class="t-from" r="4"/><circle class="t-to" r="4"/></svg>
     </div>
-    <p class="small muted board-cap">Сцену с братьями мы придумали для этой страницы, чтобы показать подход команды.</p>
+    <p class="small muted board-cap">Сцену с братьями мы придумали для этой страницы, чтобы показать, как наша ИИ‑технология может работать с вашей историей.</p>
   </div>
 </section>
 
@@ -938,7 +993,6 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 (() => {
   const site = document.querySelector(".site");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const desktop = matchMedia("(min-width: 880px)");
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -952,65 +1006,24 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   new IntersectionObserver(([e]) => site.classList.toggle("cta-away", !e.isIntersecting), { rootMargin: "-72px 0px 0px 0px" }).observe($("#hero-cta"));
 
   /* 1. The Co-author's window of the first screen: a ready question opens its answer in the next block. */
-  const stage = $(".stage");
   $$(".co-q").forEach((q) => q.addEventListener("click", () => { $(`#ask-${q.dataset.ask}`).checked = true; }));
-  const placeSuggest = () => stage.style.setProperty("--suggest-top", `${$("#edit-line").offsetTop}px`);
-  placeSuggest();
 
-  /* 3. The garage: a phrase of the dialogue, its note and its moment on the floor. */
+  /* 3. The garage: a frame draws itself once when it comes into view; the dialogue marks the phrase of the note in the middle of the screen. */
   const board = $(".board");
-  const phrases = $$(".ph", board), notes = $$(".note", board), dots = $$(".step-dot", board);
-  const path = $(".threads path"), from = $(".t-from"), to = $(".t-to");
-  const TARGET = { a: 112 / 612, b: 300 / 612, c: 470 / 612 };
-  const PAN = { a: "0%", b: "-28.8%", c: "-59.5%" };
-  let active = 4;
-
-  function thread(animate) {
-    const phrase = phrases.find((p) => +p.dataset.n === active);
-    const note = notes.find((n) => +n.dataset.n === active);
-    if (!desktop.matches) { path.setAttribute("d", ""); from.style.display = to.style.display = "none"; return; }
-    const b = board.getBoundingClientRect();
-    const rects = phrase.getClientRects();
-    const last = rects[rects.length - 1];
-    const floor = $(".floor").getBoundingClientRect();
-    const x1 = last.right - b.left + 12, y1 = last.top + last.height / 2 - b.top;
-    const x2 = floor.left - b.left, y2 = floor.top - b.top + floor.height * TARGET[note.dataset.m];
-    const gap = x2 - ($(".talk").getBoundingClientRect().right - b.left);
-    const xg = x2 - Math.min(40, gap - 40), r = Math.min(14, Math.abs(y2 - y1) / 2), s = Math.sign(y2 - y1) || 1;
-    const d = `M${x1} ${y1} H${xg - r} Q${xg} ${y1} ${xg} ${y1 + s * r} V${y2 - s * r} Q${xg} ${y2} ${xg + r} ${y2} H${x2}`;
-    path.setAttribute("d", d);
-    from.style.display = to.style.display = "";
-    from.setAttribute("cx", x1); from.setAttribute("cy", y1);
-    to.setAttribute("cx", x2); to.setAttribute("cy", y2);
-    const len = path.getTotalLength();
-    path.style.strokeDasharray = len;
-    if (animate && !reduce) {
-      path.style.transition = "none"; path.style.strokeDashoffset = len;
-      path.getBoundingClientRect(); path.style.transition = ""; path.style.strokeDashoffset = 0;
-    } else path.style.strokeDashoffset = 0;
-  }
-  function select(n, animate = true) {
-    active = n;
-    const note = notes.find((x) => +x.dataset.n === n);
-    board.dataset.m = note.dataset.m;
-    board.style.setProperty("--pan", PAN[note.dataset.m]);
-    for (const set of [phrases, notes, dots]) set.forEach((el) => el.classList.toggle("is-on", +el.dataset.n === n));
-    thread(animate);
-  }
+  const phrases = $$(".ph", board), noted = $$("[data-note]", board);
+  const draw = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.closest(".frame").setAttribute("data-in", ""); draw.unobserve(e.target); }
+  }, { threshold: 0.55 });
+  $$(".frame-pic", board).forEach((pic) => (reduce ? pic.closest(".frame").setAttribute("data-in", "") : draw.observe(pic)));
+  const mark = (n, cls) => { for (const set of [phrases, noted]) set.forEach((el) => el.classList.toggle(cls, +el.dataset.n === n)); };
+  const middle = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) mark(+e.target.dataset.n, "is-on");
+  }, { rootMargin: "-50% 0px -50% 0px" });
+  noted.forEach((el) => middle.observe(el));
   phrases.forEach((p) => {
-    p.setAttribute("role", "button");
-    p.addEventListener("click", (e) => { e.preventDefault(); select(+p.dataset.n); });
-    p.addEventListener("mouseenter", () => desktop.matches && +p.dataset.n !== active && select(+p.dataset.n));
-    p.addEventListener("focus", () => +p.dataset.n !== active && select(+p.dataset.n));
-    p.addEventListener("keydown", (e) => { if (e.key === " ") { e.preventDefault(); select(+p.dataset.n); } });
+    for (const on of ["mouseenter", "focus"]) p.addEventListener(on, () => mark(+p.dataset.n, "is-hot"));
+    for (const off of ["mouseleave", "blur"]) p.addEventListener(off, () => mark(0, "is-hot"));
   });
-  dots.forEach((d) => d.addEventListener("click", () => select(+d.dataset.n)));
-  $$(".step-btn", board).forEach((b) => b.addEventListener("click", () => select(((active - 1 + +b.dataset.step + 5) % 5) + 1)));
-  select(active, false);
-  const again = () => { placeSuggest(); thread(false); };
-  new ResizeObserver(again).observe(board);
-  document.fonts?.ready.then(again);
-  desktop.addEventListener("change", again);
 
   /* 5. The words of the last sentence light up one after another, once. */
   const credo = $("#credo");
