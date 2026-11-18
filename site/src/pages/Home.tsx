@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { DraftImport } from "../blocks/DraftImport";
 import { Faq } from "../blocks/Faq";
@@ -20,19 +20,15 @@ function Signup() {
     <section
       id="beta"
       aria-labelledby="beta-title"
-      className="scroll-mt-24 px-4 py-16 sm:px-6 sm:py-24"
+      className="sec scroll-mt-18 pb-0!"
     >
-      <div
-        ref={ref}
-        data-reveal
-        className="mx-auto grid w-full max-w-6xl items-start gap-10 lg:grid-cols-[2fr_3fr]"
-      >
-        <div className="flex flex-col gap-4">
-          <h2 id="beta-title" className="heading-2 text-foreground">
+      <div ref={ref} data-reveal className="wrap beta-grid">
+        <div className="beta-copy">
+          <h2 id="beta-title" className="h2">
             {BETA_FORM.title}
           </h2>
-          <p className="body-lg text-muted-foreground">{BETA_FORM.lead}</p>
-          <p className="body-6 text-muted-foreground">
+          <p className="muted body-lg">{BETA_FORM.lead}</p>
+          <p className="small muted">
             {BETA_FORM.invited}{" "}
             <a
               className="text-primary underline underline-offset-2 hover:no-underline"
@@ -49,16 +45,39 @@ function Signup() {
   );
 }
 
+/** Marks the page with `cta-away` while the button of the first screen is off screen (design D10). */
+function useHeaderCta(ref: React.RefObject<HTMLAnchorElement | null>) {
+  useEffect(() => {
+    const cta = ref.current;
+    if (cta === null)
+      throw new Error("Home: the first-screen button is not mounted");
+    const root = document.documentElement;
+    const observer = new IntersectionObserver(
+      ([entry]) => root.classList.toggle("cta-away", !entry.isIntersecting),
+      { rootMargin: "-72px 0px 0px 0px" },
+    );
+    observer.observe(cta);
+    return () => {
+      observer.disconnect();
+      root.classList.remove("cta-away");
+    };
+  }, [ref]);
+}
+
 export function Home() {
+  // The question open in «Спросите о своём сценарии»; the ready questions of the first screen choose it too.
+  const [question, setQuestion] = useState(1);
+  const cta = useRef<HTMLAnchorElement>(null);
+  useHeaderCta(cta);
   return (
-    <>
-      <Hero />
-      <Sandbox />
+    <div className="lp">
+      <Hero onAsk={setQuestion} ctaRef={cta} />
+      <Sandbox selected={question} onSelect={setQuestion} />
       <StoryApproach />
       <DraftImport />
       <TeamNote />
       <Signup />
       <Faq />
-    </>
+    </div>
   );
 }

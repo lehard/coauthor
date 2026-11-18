@@ -16,7 +16,7 @@ const page = pageForPath(window.location.pathname);
 function mount(content: React.JSX.Element) {
   const app = (
     <StrictMode>
-      <App>{content}</App>
+      <App home={page === "home"}>{content}</App>
     </StrictMode>
   );
   // Built pages arrive rendered and are hydrated; the dev server sends an empty #root.

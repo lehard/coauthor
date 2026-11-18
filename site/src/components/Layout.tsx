@@ -21,7 +21,13 @@ function BrandMark() {
   );
 }
 
-export function Layout({ children }: { children: ReactNode }) {
+export function Layout({
+  home,
+  children,
+}: {
+  home: boolean;
+  children: ReactNode;
+}) {
   return (
     <div className="flex min-h-dvh flex-col bg-desk text-foreground">
       <a
@@ -30,18 +36,31 @@ export function Layout({ children }: { children: ReactNode }) {
       >
         К содержанию
       </a>
-      <header className="sticky top-0 z-40 px-4 pt-4 sm:px-6">
+      <header className="top sticky top-0 z-40 px-4 pt-4 sm:px-6">
         <nav
           aria-label="Основная навигация"
           className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 rounded-full bg-panel/85 px-4 py-2 shadow-panel ring-1 ring-border backdrop-blur-md"
         >
           <BrandMark />
-          <a
-            href={APP_URL}
-            className={`${buttonClass("secondary")} px-4 py-2 button-sm`}
-          >
-            Войти
-          </a>
+          {home ? (
+            // On the main page «Хочу в бету» joins «Войти» once the button of the first screen is gone
+            // (openspec/specs/web/site, «Кнопка заявки в шапке»; design D10). Without JavaScript both are shown.
+            <div className="nav-actions nav-home">
+              <a href={APP_URL} className="nav-link">
+                Войти
+              </a>
+              <a href="#beta" className="btn btn-primary btn-sm nav-cta">
+                Хочу в бету
+              </a>
+            </div>
+          ) : (
+            <a
+              href={APP_URL}
+              className={`${buttonClass("secondary")} px-4 py-2 button-sm`}
+            >
+              Войти
+            </a>
+          )}
         </nav>
       </header>
       <main id="main" className="flex-1">

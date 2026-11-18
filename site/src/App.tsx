@@ -29,6 +29,12 @@ export function isDocumentPage(page: PageKey): page is DocumentPageKey {
   return page in DOCUMENT_PAGES;
 }
 
-export function App({ children }: { children: ReactNode }) {
-  return <Layout>{children}</Layout>;
+export function App({
+  home,
+  children,
+}: {
+  home: boolean;
+  children: ReactNode;
+}) {
+  return <Layout home={home}>{children}</Layout>;
 }

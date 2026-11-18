@@ -1,37 +1,61 @@
-import { useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 
 import { EPIGRAPH, TEAM_NOTE } from "../content/copy";
-import { useInView } from "../motion/hooks";
+import { observeOnce, useInView } from "../motion/hooks";
+
+// «Зачем мы делаем Соавтора» (openspec/specs/web/site, «Обращение команды»; design D12): the first sentence is the
+// opening line, the epigraph a quotation, the last sentence stands on a card in the theme «Вечер у лампы» and its
+// words light up one after another, once, when the card has risen into the upper three quarters of the screen.
 
 export function TeamNote() {
   const ref = useRef<HTMLDivElement>(null);
+  const screen = useRef<HTMLDivElement>(null);
+  const credo = useRef<HTMLParagraphElement>(null);
   useInView(ref);
-
+  useInView(screen);
+  useEffect(() => {
+    const element = credo.current;
+    if (element === null)
+      throw new Error("TeamNote: the last sentence is not mounted");
+    return observeOnce(
+      [element],
+      { threshold: 0.6, rootMargin: "0px 0px -25% 0px" },
+      (target) => target.setAttribute("data-in", ""),
+    );
+  }, []);
+  const words = TEAM_NOTE.credo.split(" ");
   return (
-    <section
-      aria-labelledby="team-note-title"
-      className="px-4 pt-16 sm:px-6 sm:pt-24"
-    >
-      <div
-        ref={ref}
-        data-reveal
-        className="mx-auto flex w-full max-w-3xl flex-col gap-7 border-b border-border pb-16 sm:pb-24"
-      >
-        <h2 id="team-note-title" className="heading-2 text-foreground">
-          {TEAM_NOTE.title}
-        </h2>
-        <figure className="border-l-2 border-ai-border pl-5">
-          <blockquote className="body-lg text-muted-foreground italic">
-            «{EPIGRAPH.quote}»
-          </blockquote>
-          <figcaption className="mt-2 caption-1 text-muted-foreground">
-            {EPIGRAPH.author}
-          </figcaption>
-        </figure>
-        <div className="flex max-w-[65ch] flex-col gap-5 body-lg text-foreground">
-          {TEAM_NOTE.paragraphs.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
-          ))}
+    <section aria-labelledby="team-note-title" className="sec sec-panel">
+      <div className="wrap">
+        <div ref={ref} data-reveal className="team-grid">
+          <div className="team-head">
+            <h2 className="h2" id="team-note-title">
+              {TEAM_NOTE.title}
+            </h2>
+            <figure className="epigraph">
+              <blockquote>«{EPIGRAPH.quote}»</blockquote>
+              <figcaption>{EPIGRAPH.author}</figcaption>
+            </figure>
+          </div>
+          <div className="letter">
+            <p className="lead-line">{TEAM_NOTE.opening}</p>
+            {TEAM_NOTE.paragraphs.map((paragraph) => (
+              <p key={paragraph} className="letter-prose">
+                {paragraph}
+              </p>
+            ))}
+          </div>
+        </div>
+        <div ref={screen} data-reveal className="screen" data-theme="dark">
+          <p ref={credo} className="credo">
+            {words.map((word, index) => (
+              <span key={index}>
+                <span className="w" style={{ "--i": index } as CSSProperties}>
+                  {word}
+                </span>{" "}
+              </span>
+            ))}
+          </p>
         </div>
       </div>
     </section>

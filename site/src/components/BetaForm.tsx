@@ -113,7 +113,7 @@ export function BetaForm() {
     return (
       <div
         role="status"
-        className="site-fade-in flex flex-col gap-2 rounded-2xl bg-paper p-6 ring-1 ring-border sm:p-8"
+        className="site-fade-in flex flex-col gap-2 rounded-2xl bg-paper p-6 shadow-paper ring-1 ring-border sm:p-8"
       >
         <p className="heading-5 text-paper-foreground">Заявка принята</p>
         <p className="body-3 text-muted-foreground">
@@ -134,7 +134,7 @@ export function BetaForm() {
     <form
       noValidate
       onSubmit={submit}
-      className="relative flex flex-col gap-6 rounded-2xl bg-paper p-6 ring-1 ring-border sm:p-8"
+      className="relative flex flex-col gap-6 rounded-2xl bg-paper p-6 shadow-paper ring-1 ring-border sm:p-8"
     >
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
