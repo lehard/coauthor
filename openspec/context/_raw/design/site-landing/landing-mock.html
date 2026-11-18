@@ -249,16 +249,34 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .chat-hint, .co-q, .co-input { font-size: 13px; }
   .co-q { padding: 10px 12px; }
 }
-@media (min-width: 1180px) {
+/* 768–1023 px: the copy stands above the editor. The editor is enlarged in steps of 5% so that it fills the width;
+   the chat takes the few pixels a step leaves, so the right edge always meets the edge of the page column. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .app { zoom: var(--z, 1); width: 100%; grid-template-columns: var(--sheet-w) minmax(var(--chat-w), 1fr); }
+  .chat-body { justify-content: flex-start; padding-top: 40px; }
+}
+@media (min-width: 780px) and (max-width: 1023px) { .app { --z: 1.05; } }
+@media (min-width: 814px) and (max-width: 1023px) { .app { --z: 1.1; } }
+@media (min-width: 849px) and (max-width: 1023px) { .app { --z: 1.15; } }
+@media (min-width: 884px) and (max-width: 1023px) { .app { --z: 1.2; } }
+@media (min-width: 918px) and (max-width: 1023px) { .app { --z: 1.25; } }
+@media (min-width: 953px) and (max-width: 1023px) { .app { --z: 1.3; } }
+@media (min-width: 988px) and (max-width: 1023px) { .app { --z: 1.35; } }
+/* From 1024 px the editor stands beside the copy, so the whole first screen is seen at once. */
+@media (min-width: 1024px) {
   .hero { padding: 40px 0 56px; }
-  .hero-grid { grid-template-columns: 440px minmax(0, 1fr); gap: 40px; align-items: center; }
+  .hero-grid { grid-template-columns: minmax(0, 1fr) auto; gap: 40px; align-items: center; }
   .hero-copy { padding-bottom: 32px; }
+  .hero .h1 { font-size: 44px; line-height: 48px; }
   .app { --sheet-w: 372px; --chat-w: 256px; }
   .sheet { padding: 36px 28px 36px 40px; --ind-d: 9ch; --ind-p: 14ch; --ind-c: 19ch; }
   .sheet .sc-dialogue { max-width: 33ch; }
   .sc-tail { display: none; }
 }
+@media (min-width: 1024px) and (max-width: 1087px) { .app { zoom: 0.9; } }
+@media (min-width: 1132px) { .hero .h1 { font-size: 48px; line-height: 52px; } }
 @media (min-width: 1340px) {
+  .hero .h1 { font-size: 60px; line-height: 64px; }
   .hero-grid { grid-template-columns: 488px minmax(0, 1fr); }
   .app { --sheet-w: 416px; --chat-w: 264px; }
   .sheet { padding: 40px 32px 40px 44px; --ind-d: 10ch; --ind-p: 15ch; --ind-c: 21ch; }
