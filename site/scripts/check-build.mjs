@@ -5,19 +5,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
-import {
-  ONE_ACTION,
-  SANDBOX,
-  STORY_APPROACH,
-  TEAM_NOTE,
-  VISION_CARD,
-} from "../src/content/copy.ts";
-import {
-  CONTRADICTION,
-  KOLYA,
-  ONE_ACTION_QUOTES,
-  SCENE_6,
-} from "../src/content/demo.ts";
+import { EPIGRAPH, FAQ, HERO, TEAM_NOTE } from "../src/content/copy.ts";
+import { ANSWERS } from "../src/content/demo.ts";
+import { GARAGE } from "../src/content/garage.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist");
@@ -73,7 +63,7 @@ if (problems.length === 0) {
   const privacy = read("privacy/index.html");
   const notFound = read("404.html");
   const origin = /<meta property="og:url" content="([^"]+)\/"/.exec(home)?.[1];
-  if (!origin) fail("index.html has no og:url");
+  if (!origin) throw new Error("index.html has no og:url");
 
   // The main page of the second version (openspec/specs/web/site): structure, not exact wording,
   // because the texts change without OpenSpec.
@@ -89,110 +79,68 @@ if (problems.length === 0) {
     if (!match) throw new Error(`index.html has no section ${id}`);
     return match[0];
   };
-  // The contradiction of the first screen: two quoted scenes, the co-author's card and the caption of the example.
-  const hero = section("hero-title");
-  if ((hero.match(/<mark[\s>]/g) ?? []).length !== 2)
-    fail("the first screen must quote two lines in <mark>");
-  if ((hero.match(/Сцена(?:\s|<!-- -->)*\d+/g) ?? []).length !== 2)
-    fail("the first screen must name two scenes by number");
-  if (!/role="group"[^>]*aria-label="[^"]+"/.test(hero))
-    fail("the first screen has no labelled card of the co-author");
-  if (!/<figcaption[^>]*>[^<]*[Пп]ример/.test(hero))
-    fail("the first screen is not captioned as an example");
-  for (const id of ["story-approach-title", "impact-title"]) {
-    const block = section(id);
-    if (!block.includes("Концепт"))
-      fail(`section ${id} is not marked «Концепт»`);
-    else if (!block.includes("пока нет"))
-      fail(`section ${id} does not say the beta has none of it yet`);
-  }
-  const count = (html, needle) => html.split(needle).length - 1;
-  // React splits text around expressions with <!-- --> in the prerender; compare without those markers.
-  const plain = (html) => html.replaceAll("<!-- -->", "");
-  // Examples of the co-author below the first screen (design D5 of site-coauthor-examples), texts from content/.
-  const sandbox = plain(section("sandbox-title"));
-  for (const text of [
-    SCENE_6.heading,
-    SCENE_6.lead,
-    SCENE_6.quote,
-    "Сц. 5",
-    "Сц. 6",
-  ]) {
-    if (!sandbox.includes(text)) fail(`the sandbox has no «${text}»`);
-  }
-  if (!sandbox.includes(SANDBOX.linksConcept))
-    fail("the scene links of the sandbox are not marked as a concept");
-  const beta = plain(section("beta-tabs-title"));
-  const cards = beta.slice(beta.indexOf(ONE_ACTION.title));
-  if (!beta.includes(ONE_ACTION.title))
-    fail("the beta block has no row of «one action» cards");
-  for (const text of [
-    ONE_ACTION.caption,
-    ONE_ACTION_QUOTES.mishaGoal,
-    ONE_ACTION_QUOTES.suggestion.before,
-    ONE_ACTION_QUOTES.suggestion.after,
-    ONE_ACTION_QUOTES.comment.quote,
-    ONE_ACTION.comment.text,
-  ]) {
-    if (!cards.includes(text)) fail(`the «one action» cards have no «${text}»`);
-  }
-  if (cards.includes("Концепт"))
-    fail("the «one action» cards must not be marked «Концепт»");
-  for (const line of [CONTRADICTION.first.line, CONTRADICTION.second.line]) {
-    if (cards.includes(line))
-      fail(`the «one action» cards repeat the first screen: «${line}»`);
-  }
-  const vision = plain(section("vision-title"));
-  for (const text of [
-    KOLYA.name,
-    ...KOLYA.facts.map((fact) => fact.text),
-    ...KOLYA.facts
-      .filter((fact) => fact.scene !== null)
-      .map((fact) => `${VISION_CARD.scene} ${fact.scene}`),
-    VISION_CARD.badge,
-    VISION_CARD.notYet,
-  ]) {
-    if (!vision.includes(text)) fail(`the hero card has no «${text}»`);
-  }
-  if (count(section("sandbox-title"), "пример ответа") < 3)
-    fail("the sandbox must have at least three answers marked «пример ответа»");
-  if (count(home, 'role="tabpanel"') < 5)
-    fail("the beta block must have five tab panels in the HTML");
-  if (count(home, "data-word") < 10)
-    fail("the vision phrase is not split into words");
-  for (const [id, copy] of [
-    ["story-approach-title", STORY_APPROACH],
-    ["team-note-title", TEAM_NOTE],
-  ]) {
-    const block = plain(section(id));
-    if (!new RegExp(`<h2[^>]*id="${id}"[^>]*>`).test(block))
-      fail(`section ${id} has no labelled <h2>`);
-    for (const text of [copy.title, ...copy.paragraphs]) {
-      if (!block.includes(text)) fail(`section ${id} has no «${text}»`);
-    }
-  }
-  if (!section("story-approach-title").includes(STORY_APPROACH.notYet))
-    fail("the story approach has no beta status");
-  if (section("team-note-title").includes(STORY_APPROACH.badge))
-    fail("the team note must not be marked «Концепт»");
-  const order = [
-    "beta-tabs-title",
+  const blocks = [
+    "hero-title",
+    "sandbox-title",
     "story-approach-title",
-    "impact-title",
-    "faq-title",
+    "draft-title",
     "team-note-title",
     "beta-title",
-  ].map((id) => home.indexOf(section(id)));
+    "faq-title",
+  ];
+  const order = blocks.map((id) => home.indexOf(section(id)));
   if (order.some((offset, index) => index > 0 && offset <= order[index - 1]))
-    fail("the story approach and team note are not in the required order");
-  if (/aria-labelledby="path-title"|Путь истории:|22 этап/.test(home))
-    fail("index.html still advertises the path of 22 stages");
-  const faq = section("faq-title");
+    fail("home sections are out of order");
+  function requireText(id, texts) {
+    const text = section(id).replaceAll(/<[^>]+>/g, "");
+    for (const phrase of texts) {
+      if (!text.includes(phrase)) fail(id + " is missing " + phrase);
+    }
+  }
+  requireText("hero-title", [
+    HERO.title,
+    HERO.lead,
+    HERO.primary,
+    HERO.note,
+    HERO.mobileEdit,
+    HERO.caption,
+  ]);
+  const hero = section("hero-title");
   if (
-    count(faq, "<details") < 5 ||
-    count(faq, "<summary") !== count(faq, "<details")
+    !hero.includes('href="#beta"') ||
+    !hero.includes("/shots/suggestion-1440.webp") ||
+    !hero.includes(HERO.alt)
   )
-    fail("questions and answers must be <details> with a <summary>");
+    fail(
+      "the hero needs the beta link and the authentic suggestion with alt text",
+    );
+  requireText(
+    "sandbox-title",
+    ANSWERS.flatMap(({ question, answer }) => [question, answer]),
+  );
+  requireText("story-approach-title", [
+    GARAGE.title,
+    GARAGE.lead,
+    GARAGE.author,
+    GARAGE.reply + " " + GARAGE.gesture + ".",
+    GARAGE.line,
+    GARAGE.summary,
+    ...GARAGE.notes.flatMap((note) => [note.title, note.text]),
+  ]);
+  requireText("team-note-title", [
+    TEAM_NOTE.title,
+    ...TEAM_NOTE.paragraphs,
+    EPIGRAPH.quote,
+    EPIGRAPH.author,
+  ]);
+  requireText("draft-title", ["Fountain", "FDX", "STARC", "DOCX", "TXT"]);
+  requireText(
+    "faq-title",
+    FAQ.items.flatMap(({ q, a }) => [q, a]),
+  );
+  if (section("faq-title").split("<summary").length - 1 !== FAQ.items.length)
+    fail("each FAQ item must have a disclosure");
+  if (/концепт|22 этап/iu.test(home)) fail("retired terminology in index.html");
 
   // Budget of the scripts the main page loads (≤ 120 KB gzip).
   const scripts = [
@@ -216,11 +164,8 @@ if (problems.length === 0) {
   ]) {
     const refs = [
       ...html.matchAll(/(?:src|href)="(\/(?:shots|concept)\/[^"]+)"/g),
-      ...[...html.matchAll(/srcSet="([^"]+)"|srcset="([^"]+)"/g)].flatMap(
-        (match) =>
-          (match[1] ?? match[2])
-            .split(",")
-            .map((part) => [null, part.trim().split(" ")[0]]),
+      ...[...html.matchAll(/srcset="([^"]+)"/gi)].flatMap((match) =>
+        match[1].split(",").map((part) => [null, part.trim().split(" ")[0]]),
       ),
     ].map((match) => match[1]);
     for (const ref of refs) {
@@ -237,8 +182,12 @@ if (problems.length === 0) {
     !privacy.includes(`<meta property="og:url" content="${origin}/privacy/" />`)
   )
     fail("privacy: og:url is wrong");
-  const title = (html) => /<title>([^<]*)<\/title>/.exec(html)?.[1];
-  if (!title(home) || title(home) === title(privacy))
+  const title = (html, file) => {
+    const match = /<title>([^<]+)<\/title>/.exec(html);
+    if (!match) throw new Error(file + " has no title");
+    return match[1];
+  };
+  if (title(home, "index.html") === title(privacy, "privacy/index.html"))
     fail("the titles of the home page and the policy must differ");
   if (!notFound.includes('<meta name="robots" content="noindex" />'))
     fail("404.html is not noindex");
@@ -260,14 +209,16 @@ if (problems.length === 0) {
     ["404.html", notFound],
     ...documents.map(([, file, , html]) => [file, html]),
   ];
-  const footer = (html) => /<footer[\s\S]*?<\/footer>/.exec(html)?.[0] ?? "";
   for (const [file, html] of pages) {
+    const match = /<footer[\s\S]*?<\/footer>/.exec(html);
+    if (!match) throw new Error(file + " has no footer");
+    const footer = match[0];
     if (!html.includes('<html lang="ru"')) fail(`${file}: lang is not ru`);
     for (const [url] of DOCUMENTS) {
-      if (!footer(html).includes(`href="${url}"`))
+      if (!footer.includes(`href="${url}"`))
         fail(`${file}: the footer has no link to ${url}`);
     }
-    if (footer(html).includes('href="/privacy/"'))
+    if (footer.includes('href="/privacy/"'))
       fail(`${file}: the footer links the policy of the beta request`);
   }
   if (!home.includes('href="/privacy/"'))
@@ -284,7 +235,10 @@ if (problems.length === 0) {
     if (!html.includes(`<meta property="og:url" content="${origin}${url}" />`))
       fail(`${file}: og:url is wrong`);
     if (!/<h1[^>]*>[^<]+<\/h1>/.test(html)) fail(`${file}: no heading`);
-    if (title(html) === title(home) || title(html) === title(privacy))
+    if (
+      title(html, file) === title(home, "index.html") ||
+      title(html, file) === title(privacy, "privacy/index.html")
+    )
       fail(`${file}: the title repeats another page`);
     // Links of a document to the product domain must lead to pages of the site (design D6). Only links of
     // the text (<a>): canonical and og:url of the page start with the origin of the build and have their own checks.
@@ -299,7 +253,7 @@ if (problems.length === 0) {
     // Every numbered point (7.1., 7.2., …) is a paragraph of its own, not glued to the previous one.
     for (const match of html.matchAll(/<p>([\s\S]*?)<\/p>/g)) {
       // Glued lines keep their line break; a reference such as «раздел 7.5.» inside a sentence does not.
-      if ((match[1].match(/(?:^|\n)\d+\.\d+\.\s/g) ?? []).length > 1)
+      if (Array.from(match[1].matchAll(/(?:^|\n)\d+\.\d+\.\s/g)).length > 1)
         fail(
           `${file}: numbered points share a paragraph; separate them with an empty line in docs/legal/${source}`,
         );
@@ -311,9 +265,12 @@ if (problems.length === 0) {
   }
   if (!documents[0][3].includes('id="materials"'))
     fail("legal/offer/index.html has no anchor #materials");
-  if (title(privacy) === title(documents[1][3]))
+  if (
+    title(privacy, "privacy/index.html") ===
+    title(documents[1][3], documents[1][1])
+  )
     fail("the titles of /privacy/ and /legal/privacy/ must differ");
-  if (!/заявк/.test(title(privacy) ?? ""))
+  if (!/заявк/.test(title(privacy, "privacy/index.html")))
     fail("the title of /privacy/ must name the beta request");
   for (const loc of [
     `${origin}/`,
@@ -327,19 +284,19 @@ if (problems.length === 0) {
     fail("robots.txt does not point to sitemap.xml");
 
   // Placeholders and secrets in any built text file.
-  const env = fs.existsSync(path.join(root, "..", ".env"))
-    ? fs.readFileSync(path.join(root, "..", ".env"), "utf8")
-    : "";
-  const secrets = env
-    .split("\n")
-    .map((line) => /^([A-Z0-9_]+)=(.+)$/.exec(line.trim()))
-    .filter(
-      (match) =>
+  const envPath = path.join(root, "..", ".env");
+  const secrets = [];
+  if (fs.existsSync(envPath)) {
+    for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+      const match = /^([A-Z0-9_]+)=(.+)$/.exec(line.trim());
+      if (
         match &&
         !["SITE_ORIGIN", "SITE_APP_URL"].includes(match[1]) &&
-        match[2].length >= 12,
-    )
-    .map((match) => match[2]);
+        match[2].length >= 12
+      )
+        secrets.push(match[2]);
+    }
+  }
   const walk = (dir) =>
     fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
       const full = path.join(dir, entry.name);

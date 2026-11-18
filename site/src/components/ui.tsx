@@ -1,4 +1,5 @@
-import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { useRef, type AnchorHTMLAttributes, type ReactNode } from "react";
+import { useInView } from "../motion/hooks";
 
 // Buttons and frames of the site on the semantic tokens of the design system.
 
@@ -66,23 +67,23 @@ export function Shot({
 }
 
 export function Section({
-  id,
   labelledBy,
   className,
   children,
 }: {
-  id?: string;
   labelledBy: string;
-  className?: string;
+  className: string;
   children: ReactNode;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useInView(ref);
   return (
-    <section
-      id={id}
-      aria-labelledby={labelledBy}
-      className={`scroll-mt-24 px-4 py-16 sm:px-6 sm:py-24 ${className ?? ""}`}
-    >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+    <section aria-labelledby={labelledBy} className={className}>
+      <div
+        ref={ref}
+        data-reveal
+        className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"
+      >
         {children}
       </div>
     </section>

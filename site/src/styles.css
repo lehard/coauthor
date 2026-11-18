@@ -64,16 +64,6 @@
  * Start states hide content only with JavaScript on (`.js` from index.html) and only when the visitor
  * did not ask to reduce motion, so the prerendered page always shows the end state.
  */
-@utility ease-enter {
-  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-}
-@utility ease-fade {
-  transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
-}
-@utility ease-sweep {
-  transition-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
-}
-
 @keyframes site-appear {
   from {
     opacity: 0;
@@ -84,14 +74,6 @@
     opacity: 1;
     transform: none;
     filter: none;
-  }
-}
-@keyframes site-grow {
-  from {
-    transform: scaleY(0);
-  }
-  to {
-    transform: none;
   }
 }
 @keyframes site-fade {
@@ -108,7 +90,6 @@
      it stands still in its end state. */
   .js [data-appear] {
     animation: site-appear 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-    animation-delay: calc(var(--i, 0) * 70ms);
   }
   .site-fade-in {
     animation: site-fade 0.5s cubic-bezier(0.33, 1, 0.68, 1) both;
@@ -124,27 +105,13 @@
     opacity: 0;
     transform: translateY(32px);
   }
+}
 
-  /* The vision phrase: words light up one by one. */
-  .js [data-word]:not([data-lit]) {
-    opacity: 0.25;
-  }
-  .js [data-word] {
-    transition: opacity 0.45s cubic-bezier(0.33, 1, 0.68, 1);
-  }
-
-  /* The line between the two scenes of the first screen draws itself once on load, piece by piece. */
-  .js [data-rail] {
-    animation: site-grow 0.2s linear both;
-    animation-delay: var(--draw-delay, 0ms);
-  }
-
-  /* SVG lines draw themselves when their section comes into view. */
-  .js [data-draw] {
-    stroke-dasharray: 1;
-    transition: stroke-dashoffset 1.4s cubic-bezier(0.65, 0, 0.35, 1);
-  }
-  .js :not([data-in]) > [data-draw] {
-    stroke-dashoffset: 1;
-  }
+/* Keep the screenplay line and the adjacent suggestion together as the viewport narrows. */
+.editor-crop {
+  display: block;
+  width: 100%;
+  height: clamp(18rem, 32vw, 27rem);
+  object-fit: none;
+  object-position: 53% 60%;
 }

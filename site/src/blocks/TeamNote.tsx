@@ -1,6 +1,6 @@
 import { useRef } from "react";
 
-import { TEAM_NOTE } from "../content/copy";
+import { EPIGRAPH, TEAM_NOTE } from "../content/copy";
 import { useInView } from "../motion/hooks";
 
 export function TeamNote() {
@@ -20,6 +20,14 @@ export function TeamNote() {
         <h2 id="team-note-title" className="heading-2 text-foreground">
           {TEAM_NOTE.title}
         </h2>
+        <figure className="border-l-2 border-ai-border pl-5">
+          <blockquote className="body-lg text-muted-foreground italic">
+            «{EPIGRAPH.quote}»
+          </blockquote>
+          <figcaption className="mt-2 caption-1 text-muted-foreground">
+            {EPIGRAPH.author}
+          </figcaption>
+        </figure>
         <div className="flex max-w-[65ch] flex-col gap-5 body-lg text-foreground">
           {TEAM_NOTE.paragraphs.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
