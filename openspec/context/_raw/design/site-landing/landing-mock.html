@@ -124,7 +124,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .js.cta-away .nav-cta { opacity: 1; visibility: visible; transform: none; }
 
 /* ---------- 1. Hero ---------- */
-.hero { position: relative; overflow: clip; padding-top: 32px; }
+.hero { position: relative; overflow: clip; padding: 32px 0; }
 .hero::before { content: ""; position: absolute; inset: -120px 0 0 30%; background: radial-gradient(50% 60% at 60% 45%, oklch(0.985 0.03 85 / 0.85), transparent 100%); pointer-events: none; }
 .hero-grid { position: relative; }
 .hero-grid { display: grid; gap: 40px; }
@@ -134,7 +134,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .stage { position: relative; min-width: 0; }
 .ed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .ed-title { font-family: var(--font-prose); font-weight: 600; font-size: 18px; line-height: 28px; letter-spacing: -0.01em; white-space: nowrap; }
-.ed-cap { font-size: 13px; line-height: 20px; color: var(--muted-foreground); text-align: right; }
+.ed-cap { margin-top: 12px; font-size: 13px; line-height: 20px; color: var(--muted-foreground); }
 .ed-wide { display: none; }
 @media (min-width: 640px) { .ed-wide { display: inline; } }
 .ed-bar { display: none; align-items: center; gap: 4px; height: 40px; margin-bottom: 12px; padding: 0 12px; border-radius: 999px; background: var(--panel); box-shadow: var(--shadow-panel), 0 0 0 1px var(--border); color: var(--muted-foreground); font-size: 13px; line-height: 20px; font-weight: 500; }
@@ -227,28 +227,42 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .sheet { padding: 32px 32px 0; max-height: 348px; }
   .sc-wide { display: block; }
 }
-/* from a tablet up the sheet and the chat stand side by side; the toolbar is as wide as the sheet */
+/* from a tablet up: a whole A4 sheet and the chat beside it, with one top and one bottom. The toolbar is as wide as the
+   sheet; the head of the chat is as tall as the toolbar row, so its rule continues the top edge of the sheet. */
 @media (min-width: 768px) {
-  .app { grid-template-columns: minmax(0, 1fr) 272px; gap: 12px; height: 480px; max-width: 880px; }
-  .app-doc { display: flex; flex-direction: column; min-height: 0; }
-  .ed-bar { display: flex; }
-  .ed-title { font-size: 20px; }
-  .sheet { flex: 1; min-height: 0; max-height: none; }
+  .hero { padding-bottom: 48px; }
+  .app { --sheet-w: 416px; --chat-w: 264px; grid-template-columns: var(--sheet-w) var(--chat-w); gap: 16px; width: calc(var(--sheet-w) + var(--chat-w) + 16px); }
+  .app-doc { display: flex; flex-direction: column; }
+  .ed-bar { display: flex; height: 36px; margin-bottom: 16px; font-size: 12px; line-height: 16px; }
+  .sheet {
+    width: var(--sheet-w); aspect-ratio: 210 / 297; max-height: none; border-radius: 6px; padding: 40px 32px 40px 44px;
+    font-size: 11px; line-height: 16px; --lh: 16px; --ind-d: 10ch; --ind-p: 15ch; --ind-c: 21ch;
+    -webkit-mask-image: none; mask-image: none;
+  }
+  .sheet .sc-dialogue { max-width: 35ch; }
   .chat { margin-top: 0; }
+  .chat-head { height: 52px; padding: 8px 16px; }
+  .chat-name { font-size: 14px; line-height: 20px; }
+  .chat-sees { font-size: 12px; line-height: 16px; }
+  .chat-title { font-size: 15px; }
+  .chat-hint, .co-q, .co-input { font-size: 13px; }
+  .co-q { padding: 10px 12px; }
 }
 @media (min-width: 1180px) {
-  .hero { padding-top: 40px; }
-  .hero-grid { grid-template-columns: 440px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 40px; height: clamp(600px, calc(100svh - 128px), 720px); }
-  .hero-copy { justify-content: center; padding-bottom: 72px; }
-  .stage { min-height: 0; }
-  .app { height: 100%; max-width: none; }
-  .sheet { padding: 32px 28px 0; overflow: visible; -webkit-mask-image: none; mask-image: none; }
-  .chat { height: calc(100% - 16px); }
+  .hero { padding: 40px 0 56px; }
+  .hero-grid { grid-template-columns: 440px minmax(0, 1fr); gap: 40px; align-items: center; }
+  .hero-copy { padding-bottom: 32px; }
+  .app { --sheet-w: 372px; --chat-w: 256px; }
+  .sheet { padding: 36px 28px 36px 40px; --ind-d: 9ch; --ind-p: 14ch; --ind-c: 19ch; }
+  .sheet .sc-dialogue { max-width: 33ch; }
+  .sc-tail { display: none; }
 }
 @media (min-width: 1340px) {
-  .hero-grid { grid-template-columns: 496px minmax(0, 1fr); }
-  .app { width: calc(100% + 64px); }
-  .sheet { font-size: 16px; line-height: 24px; --lh: 24px; --ind-d: 6ch; --ind-p: 11ch; --ind-c: 16ch; }
+  .hero-grid { grid-template-columns: 488px minmax(0, 1fr); }
+  .app { --sheet-w: 416px; --chat-w: 264px; }
+  .sheet { padding: 40px 32px 40px 44px; --ind-d: 10ch; --ind-p: 15ch; --ind-c: 21ch; }
+  .sheet .sc-dialogue { max-width: 35ch; }
+  .sc-tail { display: block; }
 }
 
 /* ---------- Sections ---------- */
@@ -548,10 +562,6 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     <figure class="stage" data-state="open" aria-label="Редактор Соавтора: лист сценария «Тихая вода» и рядом чат с Соавтором">
       <div class="app">
       <div class="app-doc">
-      <div class="ed-head">
-        <p class="ed-title" aria-hidden="true">Текст сценария</p>
-        <figcaption class="ed-cap">Пример из беты</figcaption>
-      </div>
       <div class="ed-bar" aria-hidden="true">
         <span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5 2.5 6.5l3 3M2.5 6.5h7a3.5 3.5 0 0 1 0 7H7.5"/></svg></span>
         <span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 3.5 3 3-3 3M13.5 6.5h-7a3.5 3.5 0 0 0 0 7h2"/></svg></span>
@@ -579,9 +589,9 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
         <p class="sc-char">АНЯ (З.К.)</p>
         <p class="sc-dialogue">Мам, ты опять не спишь?</p>
         <p class="sc-action sc-wide">Входит АНЯ, в куртке, с рюкзаком. Ставит рюкзак на стул.</p>
-        <p class="sc-char sc-wide">ВЕРА</p>
-        <p class="sc-paren sc-wide">(не оборачиваясь)</p>
-        <p class="sc-dialogue sc-wide">Я же просила звонить, когда едешь так поздно.</p>
+        <p class="sc-char sc-wide sc-tail">ВЕРА</p>
+        <p class="sc-paren sc-wide sc-tail">(не оборачиваясь)</p>
+        <p class="sc-dialogue sc-wide sc-tail">Я же просила звонить, когда едешь так поздно.</p>
       </div>
       </div>
       <aside class="chat" aria-label="Чат с Соавтором">
@@ -604,6 +614,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
         </div>
       </aside>
       </div>
+      <figcaption class="ed-cap">Пример из беты</figcaption>
     </figure>
   </div>
 </section>
