@@ -390,6 +390,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .tip { position: relative; z-index: 2; max-width: 560px; margin: 16px auto 0; padding: 20px; border-radius: 20px; background: var(--panel); box-shadow: 0 0 0 1px var(--border); }
 .tip .msg:first-child { margin-top: 0; }
 .tip .msg-ai { margin-top: 20px; }
+.tip-eg { margin-top: 8px !important; }
 .waterline { display: flex; align-items: center; gap: 16px; margin: 28px 0 20px !important; color: var(--muted-foreground); }
 .waterline::after { content: ""; flex: 1; height: 1px; background: var(--border-strong); opacity: 0.6; }
 /* On a phone there is no room for the lines: one line runs behind the layers and shows in the gaps between them. */
@@ -834,6 +835,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
         <div class="msg msg-ai">
           <p class="who who-ai"><span class="dot" aria-hidden="true"></span>Соавтор</p>
           <p class="reply">В сцене 5 Коля говорит: «Он утонул. Всё.» В сцене 6 Аня пересказывает его слова иначе: «Он сказал, что Миша утонул не случайно».</p>
+          <p class="small muted tip-eg">Пример ответа</p>
         </div>
       </div>
       <p class="waterline small"><span>под ответом</span></p>
