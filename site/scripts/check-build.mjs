@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
 import { EPIGRAPH, FAQ, HERO, TEAM_NOTE } from "../src/content/copy.ts";
-import { ANSWERS } from "../src/content/demo.ts";
-import { GARAGE } from "../src/content/garage.ts";
+import { ANSWER_CAPTION, ANSWERS } from "../src/content/demo.ts";
+import { FRAMES, GARAGE, NOTES } from "../src/content/garage.ts";
+import { LAYERS, TIP } from "../src/content/layers.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist");
@@ -97,41 +98,79 @@ if (problems.length === 0) {
       if (!text.includes(phrase)) fail(id + " is missing " + phrase);
     }
   }
+  // The first screen only names the product (design D4): the editor drawn in HTML, no screenshot of a suggestion.
+  const questions = ANSWERS.map(({ question }) => question);
   requireText("hero-title", [
     HERO.title,
     HERO.lead,
     HERO.primary,
     HERO.note,
-    HERO.mobileEdit,
     HERO.caption,
+    ...questions,
   ]);
   const hero = section("hero-title");
-  if (
-    !hero.includes('href="#beta"') ||
-    !hero.includes("/shots/suggestion-1440.webp") ||
-    !hero.includes(HERO.alt)
-  )
-    fail(
-      "the hero needs the beta link and the authentic suggestion with alt text",
-    );
-  requireText(
-    "sandbox-title",
-    ANSWERS.flatMap(({ question, answer }) => [question, answer]),
-  );
+  if (!hero.includes('href="#beta"')) fail("the hero needs the beta link");
+  if (hero.split('href="#ask"').length - 1 !== ANSWERS.length)
+    fail("each ready question of the hero must link to the questions block");
+  if (hero.includes("suggestion")) fail("the hero still shows the suggestion");
+  requireText("sandbox-title", [
+    ...ANSWERS.flatMap(({ question, answer }) => [question, answer]),
+    ANSWER_CAPTION,
+  ]);
+  const flat = (runs) =>
+    runs.map((run) => (typeof run === "string" ? run : run.text)).join("");
   requireText("story-approach-title", [
     GARAGE.title,
     GARAGE.lead,
-    GARAGE.author,
-    GARAGE.reply + " " + GARAGE.gesture + ".",
-    GARAGE.line,
-    GARAGE.summary,
-    ...GARAGE.notes.flatMap((note) => [note.title, note.text]),
+    TIP.title,
+    TIP.question,
+    TIP.answer,
+    ANSWER_CAPTION,
+    TIP.summary,
+    ...LAYERS.flatMap((layer) => [
+      layer.name,
+      ...layer.left,
+      ...layer.lit.map(({ name }) => name),
+      ...layer.right,
+    ]),
+    GARAGE.next,
+    GARAGE.label,
+    flat(GARAGE.author),
+    flat(GARAGE.reply),
+    GARAGE.line.text,
+    GARAGE.storyTitle,
+    ...[NOTES.start, NOTES.quarrel, ...NOTES.reasons].flatMap((note) => [
+      note.title,
+      note.text,
+    ]),
+    GARAGE.caption,
   ]);
+  const story = section("story-approach-title");
+  for (const description of Object.values(FRAMES)) {
+    if (!story.includes(`aria-label="${description}"`))
+      fail(`a frame of the storyboard has no description «${description}»`);
+  }
+  if (/<details|<summary|type="radio"/.test(story))
+    fail(
+      "the knowledge block must not hide its notes behind a disclosure or a switch",
+    );
+  for (const id of ["sandbox-title", "story-approach-title"]) {
+    if (section(id).includes("<details"))
+      fail(`${id} must not use disclosures`);
+  }
+  if (/Story Architecture Framework|\bSAF\b/.test(home))
+    fail("the main page names the framework of the layers");
   requireText("team-note-title", [
     TEAM_NOTE.title,
+    TEAM_NOTE.opening,
     ...TEAM_NOTE.paragraphs,
+    TEAM_NOTE.credo,
     EPIGRAPH.quote,
     EPIGRAPH.author,
+  ]);
+  requireText("draft-title", [
+    "Экран беты. Сценарий «Тихая вода» в редакторе.",
+    "Тихая вода.fdx",
   ]);
   requireText("draft-title", ["Fountain", "FDX", "STARC", "DOCX", "TXT"]);
   requireText(

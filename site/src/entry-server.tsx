@@ -44,7 +44,10 @@ function page(key: PageKey): React.JSX.Element {
 }
 
 export function render(key: PageKey): { html: string; head: string } {
-  return { html: renderToString(<App>{page(key)}</App>), head: head(key) };
+  return {
+    html: renderToString(<App home={key === "home"}>{page(key)}</App>),
+    head: head(key),
+  };
 }
 
 export { PAGES, SITE_ORIGIN };

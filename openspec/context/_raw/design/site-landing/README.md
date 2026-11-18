@@ -8,3 +8,5 @@
 Цвета и шрифты повторяют токены `web/src/design-system` (темы «Утро» и «Вечер у лампы»); в макете они вписаны значениями, в сайте должны браться из дизайн-системы.
 
 Варианты первого экрана лежат в истории коммитов этой папки: вернуться к прежнему можно через `git log -- openspec/context/_raw/design/site-landing` и `git checkout <коммит> -- openspec/context/_raw/design/site-landing`.
+
+Макет перенесён в `site/` изменением `site-landing-redesign` (18.11.2026): разметка в `site/src/blocks/`, стили в `site/src/landing.css`, тексты и данные в `site/src/content/`. Дальше правится сайт, а не этот файл.
