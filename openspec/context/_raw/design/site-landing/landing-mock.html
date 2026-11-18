@@ -343,20 +343,22 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .board { position: relative; margin-top: 48px; display: grid; gap: 40px; --floor: var(--panel); }
 .chalk-defs { position: absolute; }
 .talk { min-width: 0; }
-.turn { margin-top: 24px; }
-.turn .who { margin-bottom: 8px !important; }
-.author-text { font-family: var(--font-prose); font-size: 24px; line-height: 32px; font-weight: 500; text-wrap: pretty; }
+/* The dialogue reads as a chat: the author's message is a bubble on the right, the co-author answers on the left. */
+.msg { margin-top: 20px; }
+.msg .who { margin-bottom: 8px !important; }
+.msg-author { display: flex; flex-direction: column; align-items: flex-end; }
+.bubble { max-width: 88%; padding: 14px 18px; border-radius: 20px 20px 6px 20px; background: var(--muted); font-size: 18px; line-height: 28px; text-wrap: pretty; }
+.msg-ai { margin-top: 28px; }
 .reply { font-size: 18px; line-height: 28px; text-wrap: pretty; }
-.punch { margin-top: 12px !important; font-family: var(--font-prose); font-weight: 600; font-size: 30px; line-height: 40px; letter-spacing: -0.015em; }
-.lg-br { display: none; }
-.ph, .note-from .q {
+.punch { margin-top: 16px !important; font-family: var(--font-prose); font-weight: 600; font-size: 24px; line-height: 32px; letter-spacing: -0.015em; text-wrap: balance; }
+.ph {
   text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--ai); text-decoration-thickness: 2px; text-underline-offset: 5px;
 }
 .ph {
   border-radius: 3px; cursor: pointer; -webkit-box-decoration-break: clone; box-decoration-break: clone;
   transition: background-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
-.punch .ph { text-underline-offset: 8px; }
+.punch .ph { text-underline-offset: 7px; }
 .ph:hover { background: color-mix(in oklch, var(--ai-subtle) 60%, transparent); }
 .ph.is-on, .ph.is-hot { background: var(--ai-subtle); box-shadow: 0 0 0 3px var(--ai-subtle); text-decoration-style: solid; }
 .punch .ph:hover, .punch .ph.is-on, .punch .ph.is-hot { background: transparent; box-shadow: none; }
@@ -365,7 +367,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 /* The storyboard: three chalk frames of the same floor, each with its note. */
 .story { min-width: 0; }
 .frames { margin-top: 16px !important; display: grid; gap: 40px; }
-.frame { scroll-margin-top: 104px; }
+/* A phrase of the dialogue is a link to its note: the note lands across the middle of the screen, where it is marked. */
+.frame { scroll-margin-top: max(104px, calc(50vh - 180px)); }
 .frame-pic { position: relative; border-radius: 16px; overflow: hidden; background: radial-gradient(90% 70% at 50% 30%, oklch(0.36 0.055 70 / 0.3), transparent), var(--floor); box-shadow: 0 0 0 1px var(--border); }
 .frame-pic::before { content: ""; position: absolute; inset: 0; background-image: var(--grain-image); opacity: 0.1; pointer-events: none; }
 .frame-svg { position: relative; display: block; width: 100%; height: auto; color: var(--foreground); }
@@ -373,17 +376,14 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .f-mark { font-weight: 600; font-size: 22px; text-anchor: middle; dominant-baseline: central; fill: currentColor; }
 .f-side, .f-name { font-size: 14px; text-anchor: middle; fill: var(--muted-foreground); }
 .f-time { font-size: 15px; font-weight: 500; fill: currentColor; }
-.frame-svg .f-say { font-family: var(--font-prose); font-weight: 600; font-size: 16px; text-anchor: end; fill: currentColor; }
 .f-num circle { fill: var(--ai); }
 .f-num text { font-size: 14px; font-weight: 700; text-anchor: middle; dominant-baseline: central; fill: var(--desk); }
 .f-drop, .f-hand { transform-box: fill-box; transform-origin: center; }
 .note { margin-top: 16px; }
 .note-title { font-weight: 600; color: var(--ai); }
 .note-text { margin-top: 4px !important; max-width: 34em; }
-.note-from { margin-top: 6px !important; color: var(--muted-foreground); }
-.note-from .q { color: var(--foreground); text-underline-offset: 4px; }
 .reasons { margin-top: 20px !important; display: grid; gap: 20px; }
-.reason { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 12px; scroll-margin-top: 40vh; }
+.reason { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 12px; scroll-margin-top: calc(50vh - 32px); }
 .num { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ai); color: var(--desk); font-size: 14px; line-height: 1; font-weight: 700; }
 /* With scripts the note in the middle of the screen is the marked one, like its phrase in the dialogue. */
 .js .story .note-title { color: var(--foreground); transition: color 0.3s var(--ease); }
@@ -401,15 +401,15 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 @media (min-width: 1024px) {
   .know-head { gap: 24px; }
   .board { margin-top: 64px; }
+  .punch { font-size: 30px; line-height: 40px; }
   .board-cap { margin-top: 48px !important; }
 }
-/* The large type of the dialogue needs a column of 530 px: its hand-set lines must each stay on one line. */
+/* The large type of the dialogue needs a column of 530 px: the hero's line must stay on one line. */
 @media (min-width: 1180px) {
   .board { column-gap: 72px; }
-  .author-text { font-size: 28px; line-height: 36px; }
-  .reply { font-size: 20px; line-height: 32px; }
-  .punch { font-size: 48px; line-height: 56px; }
-  .lg-br { display: inline; }
+  .bubble, .reply { font-size: 20px; line-height: 32px; }
+  .bubble { padding: 16px 22px; }
+  .punch { font-size: 36px; line-height: 44px; }
 }
 
 /* ---------- 4. Draft ---------- */
@@ -420,14 +420,24 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .format { font-family: var(--font-script); font-size: 14px; line-height: 20px; padding: 4px 10px; border-radius: 6px; background: var(--paper); box-shadow: 0 0 0 1px var(--border); }
 .shot { position: relative; }
 .shot-pic { position: relative; }
-.shot-frame { border-radius: 16px; overflow: hidden; background: var(--panel); box-shadow: var(--shadow-paper), 0 0 0 1px var(--border); }
+.shot-frame { position: relative; border-radius: 16px; overflow: hidden; background: var(--panel); box-shadow: var(--shadow-paper), 0 0 0 1px var(--border); }
+/* The ring that answers the arrow: the editor has taken the file. */
+.shot-frame::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 3px var(--primary); opacity: 0; pointer-events: none; }
 .shot-frame img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: left top; }
 .shot-cap { margin-top: 12px !important; }
+/* The file stands above the editor; the arrow leaves its side and comes down onto the sheet, at --tx of the picture's width. */
+.drop { display: flex; align-items: flex-start; --tx: 86%; }
 .file {
-  position: relative; z-index: 2; display: flex; align-items: center; gap: 12px; width: fit-content; max-width: 100%;
-  margin: 0 0 -8px 16px; padding: 12px 16px 12px 12px; border-radius: 12px; background: var(--paper);
+  flex: none; display: flex; align-items: center; gap: 12px;
+  margin: 0 0 28px 16px; padding: 12px 16px 12px 12px; border-radius: 12px; background: var(--paper);
   box-shadow: var(--shadow-paper), 0 0 0 1px var(--border);
 }
+.drop-arrow { position: relative; flex: 1 1 0; min-width: 16px; align-self: stretch; margin: 34px 0 6px 10px; color: var(--primary); }
+.drop-arrow svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.drop-arrow path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.drop-arrow::after { content: ""; position: absolute; right: -5px; bottom: 2px; width: 10px; height: 10px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; border-radius: 0 0 2px 0; transform: rotate(45deg); }
+.drop-gap { flex: none; width: calc(100% - var(--tx)); }
+@media (min-width: 640px) { .drop { --tx: 47%; } }
 .file-name { font-weight: 500; }
 @media (max-width: 639px) {
   .shot-frame { aspect-ratio: 4 / 3; }
@@ -436,8 +446,6 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 @media (min-width: 1024px) {
   .draft-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; }
   .shot { margin-right: -96px; }
-  /* 74% of the picture is the empty part of the sidebar on the screenshot: the card covers no text there. */
-  .file { position: absolute; left: -40px; top: 74%; margin: 0; }
 }
 
 /* ---------- 5. Team ---------- */
@@ -505,6 +513,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 @keyframes sweep { from { clip-path: inset(-6px 100% -6px -6px); } to { clip-path: inset(-6px -6px -6px -6px); } }
 @keyframes sweep-far { from { clip-path: inset(-6px 100% -6px -6px); } to { clip-path: inset(-6px -40ch -6px -6px); } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ring { 0% { opacity: 0; } 35% { opacity: 0.55; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: no-preference) {
   .js .hero-copy > * { animation: rise 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 80ms); }
   .js .stage { animation: rise 1s var(--ease) 0.15s both; }
@@ -515,6 +524,11 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .js .ask-panel mark, .js .ask-panel ins { animation: sweep 0.7s var(--ease) 0.25s both; }
   .js .ask-panel .ask-answer > * { animation: rise 0.7s var(--ease) 0.35s both; }
   .js [data-reveal] { transition: opacity 0.8s var(--ease), transform 0.8s var(--ease); }
+  .js .shot-pic .file { transition: opacity 0.6s var(--ease), transform 0.7s var(--ease); }
+  .js .shot-pic:not([data-in]) .file { opacity: 0; transform: translateY(-12px); }
+  .js .shot-pic .drop-arrow { clip-path: inset(-12px -12px -12px -12px); transition: clip-path 0.9s cubic-bezier(0.45, 0, 0.2, 1) 0.5s; }
+  .js .shot-pic:not([data-in]) .drop-arrow { clip-path: inset(-12px 100% -12px -12px); }
+  .js .shot-pic[data-in] .shot-frame::after { animation: ring 1.2s var(--ease) 1.3s both; }
   .js [data-reveal]:not([data-in]) { opacity: 0; transform: translateY(32px); }
   .js .frame .f-draw { stroke-dasharray: 100; transition: stroke-dashoffset 1.4s cubic-bezier(0.45, 0, 0.2, 1) 0.2s; }
   .js .frame:not([data-in]) .f-draw { stroke-dashoffset: 100; }
@@ -734,14 +748,14 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 
       <div class="talk" data-reveal>
         <p class="small muted">Редакционный пример</p>
-        <div class="turn">
+        <div class="msg msg-author">
           <p class="who">Автор</p>
-          <p class="author-text">Хочу помирить братьев в финале.<br class="lg-br"> Но я их знаю.<br class="lg-br"> <a class="ph" href="#note-1" data-n="1">Ни один из них не скажет «прости».</a></p>
+          <p class="bubble">Хочу помирить братьев в финале. Но я их знаю. <a class="ph" href="#note-1" data-n="1">Ни один из них не скажет «прости».</a></p>
         </div>
-        <div class="turn">
+        <div class="msg msg-ai">
           <p class="who who-ai"><span class="dot" aria-hidden="true"></span>Соавтор</p>
           <p class="reply">Помните, как они делили отцовский гараж и <a class="ph" href="#note-2" data-n="2">провели мелом черту</a> прямо по полу? Что, если в финале младший придёт в гараж, а <a class="ph" href="#note-3" data-n="3">старший уже лежит под его машиной?</a> Из‑под машины только <a class="ph" href="#note-4" data-n="4">рука высунется.</a></p>
-          <p class="punch"><a class="ph" href="#note-5" data-n="5">«Дай на тринадцать».</a></p>
+          <p class="punch"><a class="ph" href="#note-5" data-n="5">«Дай ключ на тринадцать».</a></p>
         </div>
       </div>
 
@@ -778,7 +792,6 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
             <div class="note">
               <p class="note-title">В начале сценария</p>
               <p class="note-text">Братья проводят мелом черту по полу отцовского гаража. У каждого теперь своя сторона.</p>
-              <p class="small note-from">В диалоге: <span class="q">провели мелом черту</span></p>
             </div>
           </li>
 
@@ -811,13 +824,12 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
             <div class="note">
               <p class="note-title">После ссоры</p>
               <p class="note-text">Младшему нужен ключ. Старший кладёт его на черту. Из рук в руки они его уже не передают.</p>
-              <p class="small note-from">В диалоге: <span class="q">рука высунется</span></p>
             </div>
           </li>
 
           <li class="frame">
             <div class="frame-pic">
-              <svg class="frame-svg" viewBox="0 0 480 270" role="img" aria-label="Тот же пол гаража в финале. Старший перешёл черту и лежит под машиной на стороне младшего, из-под машины видна рука. Его место на своей стороне пусто. Младший стоит рядом с машиной. Реплика старшего: «Дай на тринадцать».">
+              <svg class="frame-svg" viewBox="0 0 480 270" role="img" aria-label="Тот же пол гаража в финале. Старший перешёл черту и лежит под машиной на стороне младшего, из-под машины видна рука. Его место на своей стороне пусто. Младший стоит рядом с машиной.">
                 <g filter="url(#chalk)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <g class="f-el" style="--d:0">
                     <g fill="currentColor" stroke="none"><rect x="348" y="58" width="7" height="24" rx="3"/><rect x="429" y="58" width="7" height="24" rx="3"/><rect x="348" y="124" width="7" height="24" rx="3"/><rect x="429" y="124" width="7" height="24" rx="3"/></g>
@@ -838,14 +850,13 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
                 </g>
                 <g class="f-el" style="--d:3"><text class="f-mark" x="392" y="103">С</text></g>
                 <g class="f-el" style="--d:5"><text class="f-mark" x="444" y="226">М</text></g>
-                <g class="f-el" style="--d:6"><text class="f-say" x="378" y="192">«Дай на</text><text class="f-say" x="378" y="212">тринадцать»</text></g>
                 <g class="f-el" style="--d:0">
                   <text class="f-side" x="120" y="27">сторона старшего</text><text class="f-side" x="350" y="27">сторона младшего</text>
                   <text class="f-time" x="18" y="252">финал</text>
                 </g>
                 <g class="f-el f-num" style="--d:7"><circle cx="456" cy="62" r="12"/><text x="456" y="62">1</text></g>
                 <g class="f-el f-num" style="--d:8"><circle cx="214" cy="104" r="12"/><text x="214" y="104">2</text></g>
-                <g class="f-el f-num" style="--d:9"><circle cx="292" cy="186" r="12"/><text x="292" y="186">3</text></g>
+                <g class="f-el f-num" style="--d:9"><circle cx="362" cy="186" r="12"/><text x="362" y="186">3</text></g>
               </svg>
             </div>
             <ol class="reasons">
@@ -853,25 +864,22 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
                 <span class="num" aria-hidden="true">1</span>
                 <div>
                   <p class="note-title">Характер братьев</p>
-                  <p class="note-text">Автор хочет их помирить. Обоим проще починить машину, чем первыми заговорить о ссоре.</p>
-                  <p class="small note-from">В диалоге: <span class="q">Ни один из них не скажет «прости»</span></p>
-                </div>
+                  <p class="note-text">Ни один не заговорит о ссоре первым. Обоим проще починить машину.</p>
+                    </div>
               </li>
               <li class="reason" id="note-3" data-n="3" data-note>
                 <span class="num" aria-hidden="true">2</span>
                 <div>
                   <p class="note-title">Взгляд зрителя</p>
-                  <p class="note-text">Дэвид Бордуэлл писал о том, как зритель использует уже замеченные детали. Здесь зритель помнит черту. Теперь он видит, на чьей стороне гаража лежит старший.</p>
-                  <p class="small note-from">В диалоге: <span class="q">старший уже лежит под его машиной</span></p>
-                </div>
+                  <p class="note-text">Зритель помнит черту. Теперь он видит, на чьей стороне гаража лежит старший. О том, как зритель использует уже замеченные детали, писал Дэвид Бордуэлл.</p>
+                    </div>
               </li>
               <li class="reason" id="note-5" data-n="5" data-note>
                 <span class="num" aria-hidden="true">3</span>
                 <div>
                   <p class="note-title">Подтекст реплики</p>
-                  <p class="note-text">На словах старшему нужен ключ. Для младшего это ещё и приглашение снова поработать вместе.</p>
-                  <p class="small note-from">В диалоге: <span class="q">«Дай на тринадцать»</span></p>
-                </div>
+                  <p class="note-text">На словах старший просит ключ. На деле он зовёт брата снова работать вместе.</p>
+                    </div>
               </li>
             </ol>
           </li>
@@ -893,12 +901,16 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     </div>
     <figure class="shot">
       <div class="shot-pic">
-      <div class="file" aria-hidden="true">
+      <div class="drop" aria-hidden="true">
+      <div class="file">
         <svg width="32" height="40" viewBox="0 0 32 40" fill="none" aria-hidden="true"><path d="M3 1h17l9 9v27a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Z" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5"/><path d="M20 1v9h9" stroke="var(--border-strong)" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 18h18M7 23h18M7 28h11" stroke="var(--border-strong)" stroke-width="1.5" stroke-linecap="round"/></svg>
         <div>
           <p class="file-name">Тихая вода.fdx</p>
           <p class="small muted">Final Draft · 7 сцен</p>
         </div>
+      </div>
+      <span class="drop-arrow"><svg viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false"><path d="M0 0 C 62 0, 100 34, 100 100"/></svg></span>
+      <span class="drop-gap"></span>
       </div>
       <div class="shot-frame">
         <img src="shots/workspace-1440.webp" srcset="shots/workspace-720.webp 720w, shots/workspace-1440.webp 1440w" sizes="(min-width: 1024px) 760px, 190vw" width="1440" height="900" loading="lazy" alt="Редактор Соавтора: слева документы истории и драфт, в центре текст сценария, справа чат Соавтора.">
@@ -1024,6 +1036,11 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     for (const on of ["mouseenter", "focus"]) p.addEventListener(on, () => mark(+p.dataset.n, "is-hot"));
     for (const off of ["mouseleave", "blur"]) p.addEventListener(off, () => mark(0, "is-hot"));
   });
+
+  /* 4. The file card, its arrow and the ring on the editor appear once when the picture comes into view. */
+  const pic = $(".shot-pic");
+  if (reduce) pic.setAttribute("data-in", "");
+  else new IntersectionObserver(([e], io) => { if (e.isIntersecting) { pic.setAttribute("data-in", ""); io.disconnect(); } }, { threshold: 0.35 }).observe(pic);
 
   /* 5. The words of the last sentence light up one after another, once. */
   const credo = $("#credo");
