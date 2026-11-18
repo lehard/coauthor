@@ -1,13 +1,11 @@
 import { useRef } from "react";
 
-import { BetaTabs } from "../blocks/BetaTabs";
+import { DraftImport } from "../blocks/DraftImport";
 import { Faq } from "../blocks/Faq";
 import { Hero } from "../blocks/Hero";
-import { Impact } from "../blocks/Impact";
 import { Sandbox } from "../blocks/Sandbox";
 import { StoryApproach } from "../blocks/StoryApproach";
 import { TeamNote } from "../blocks/TeamNote";
-import { Vision } from "../blocks/Vision";
 import { BetaForm } from "../components/BetaForm";
 import { BETA_FORM } from "../content/copy";
 import { useInView } from "../motion/hooks";
@@ -55,14 +53,12 @@ export function Home() {
   return (
     <>
       <Hero />
-      <Vision />
       <Sandbox />
-      <BetaTabs />
       <StoryApproach />
-      <Impact />
-      <Faq />
+      <DraftImport />
       <TeamNote />
       <Signup />
+      <Faq />
     </>
   );
 }
