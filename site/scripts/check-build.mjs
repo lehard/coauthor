@@ -230,6 +230,8 @@ if (problems.length === 0) {
     fail("the titles of the home page and the policy must differ");
   if (!notFound.includes('<meta name="robots" content="noindex" />'))
     fail("404.html is not noindex");
+  const GLAVAI_CREDIT =
+    "https://glavai.ru/cases/soavtor-landing\\?utm_source=soavtor&amp;utm_medium=credit";
   // The documents of the service (openspec/specs/web/site, «Документы сервиса», «Документы в подвале»).
   const DOCUMENTS = [
     ["/legal/offer/", "legal/offer/index.html", "offer.md"],
@@ -259,6 +261,15 @@ if (problems.length === 0) {
     }
     if (footer.includes('href="/privacy/"'))
       fail(`${file}: the footer links the policy of the beta request`);
+    // The credit of the studio (openspec/specs/web/site, «Подпись ГлавAI в подвале»).
+    const credit = new RegExp(`<a[^>]*href="${GLAVAI_CREDIT}"[^>]*>`).exec(
+      footer,
+    );
+    if (!credit) fail(`${file}: the footer has no credit link to glavai.ru`);
+    else if (!credit[0].includes('target="_blank"'))
+      fail(`${file}: the credit link does not open in a new tab`);
+    if (!footer.includes("Продукт и сайт сделаны в"))
+      fail(`${file}: the footer has no credit line`);
   }
   if (!home.includes('href="/privacy/"'))
     fail("index.html: the consent of the form has no link to /privacy/");

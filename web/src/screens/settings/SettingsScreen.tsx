@@ -13,8 +13,11 @@ import { TopBar } from "@/screens/shelf/TopBar";
 import { MessageScreen } from "@/screens/system/MessageScreen";
 
 // Settings, the personal cabinet (openspec/specs/web/workspace, «Настройки», «Тема в настройках»,
-// «Раздел «Ваши тексты» в настройках»),
+// «Раздел «Ваши тексты» в настройках», «Подпись ГлавAI в настройках»),
 // after the screen #settings of mockup v1.
+
+const GLAVAI_CREDIT_URL =
+  "https://glavai.ru/cases/soavtor?utm_source=soavtor-app&utm_medium=credit";
 
 const SECTIONS = [
   { id: "profile", title: "Профиль" },
@@ -102,11 +105,31 @@ function Settings({ me }: { me: Account }) {
               <Section id="texts" title="Ваши тексты">
                 <TextsRow />
               </Section>
+              <hr className="border-border" />
+              <Credit />
             </div>
           </div>
         </article>
       </main>
     </div>
+  );
+}
+
+// The quiet credit of the studio under the sections, not a section of its own
+// (openspec/specs/web/workspace, «Подпись ГлавAI в настройках»). A plain link: no request on show.
+function Credit() {
+  return (
+    <p className="text-caption text-muted-foreground">
+      ИИ-соавтор создан в{" "}
+      <a
+        href={GLAVAI_CREDIT_URL}
+        target="_blank"
+        rel="noopener"
+        className="underline underline-offset-2 hover:text-paper-foreground"
+      >
+        ГлавAI
+      </a>
+    </p>
   );
 }
 
