@@ -60,6 +60,7 @@ const PAIRS: [string, string, number][] = [
   ["border-strong", "desk", NON_TEXT],
   ["border-strong", "panel", NON_TEXT],
   ["paper-foreground", "paper", TEXT],
+  ["muted-foreground", "paper", TEXT],
   ["paper-foreground", "deco-comment-subtle", TEXT],
   ["ai", "ai-subtle", TEXT],
   ["ai", "paper", TEXT],

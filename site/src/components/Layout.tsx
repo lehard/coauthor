@@ -9,6 +9,10 @@ const FOOTER_DOCUMENTS: [PageKey, string][] = [
   ["legalPrivacy", "Политика обработки персональных данных"],
 ];
 
+// The credit of the studio that made the product and the site (openspec/specs/web/site, «Подпись ГлавAI в подвале»).
+const GLAVAI_CREDIT_URL =
+  "https://glavai.ru/cases/soavtor-landing?utm_source=soavtor&utm_medium=credit";
+
 function BrandMark() {
   return (
     <a
@@ -67,30 +71,44 @@ export function Layout({
         {children}
       </main>
       <footer className="px-4 pt-8 pb-12 sm:px-6">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 border-t border-border pt-8 body-6 text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>Соавтор, закрытая бета, 2026</p>
-          <ul className="flex flex-wrap gap-x-6 gap-y-2">
-            {/* The documents of the service (openspec/specs/web/site, «Документы в подвале»); the policy of
-                the beta request is linked only from the consent of the form. */}
-            {FOOTER_DOCUMENTS.map(([key, label]) => (
-              <li key={key}>
+        <div className="mx-auto grid w-full max-w-6xl gap-4 border-t border-border pt-8 body-6 text-muted-foreground">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p>Соавтор, закрытая бета, 2026</p>
+            <ul className="flex flex-wrap gap-x-6 gap-y-2">
+              {/* The documents of the service (openspec/specs/web/site, «Документы в подвале»); the policy of
+                  the beta request is linked only from the consent of the form. */}
+              {FOOTER_DOCUMENTS.map(([key, label]) => (
+                <li key={key}>
+                  <a
+                    className="hover:text-foreground hover:underline"
+                    href={PAGES[key].path}
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
+              <li>
                 <a
                   className="hover:text-foreground hover:underline"
-                  href={PAGES[key].path}
+                  href={APP_URL}
                 >
-                  {label}
+                  Войти
                 </a>
               </li>
-            ))}
-            <li>
-              <a
-                className="hover:text-foreground hover:underline"
-                href={APP_URL}
-              >
-                Войти
-              </a>
-            </li>
-          </ul>
+            </ul>
+          </div>
+          <p>
+            Продукт и сайт сделаны в{" "}
+            <a
+              className="underline underline-offset-2 hover:text-foreground"
+              href={GLAVAI_CREDIT_URL}
+              target="_blank"
+              rel="noopener"
+            >
+              ГлавAI
+            </a>
+            : проектируем и разрабатываем продукты с ИИ
+          </p>
         </div>
       </footer>
     </div>
