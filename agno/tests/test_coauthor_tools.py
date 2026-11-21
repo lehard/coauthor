@@ -22,11 +22,14 @@ from agents.coauthor_tools import (
     cite_source,
     comment_on_screenplay,
     create_story_document,
+    create_story_from_chat_file,
     create_story_note,
+    import_chat_file_as_draft,
     list_story_documents,
     list_story_notes,
     list_story_templates,
     read_chat_file,
+    read_chat_file_scenes,
     read_screenplay,
     read_story_document,
     read_story_note,
@@ -43,6 +46,7 @@ from core import texts
 from core.fields import FIELD_HINTS
 from core.sources import parse_canon, remove_book, save_book
 from core.tables import SUGGESTION_PLACES, source_books, source_fragments
+from tests.starc_sample import cloud_project
 
 SCENE = {"type": "sceneHeading", "attrs": {"uid": "s3"}, "content": [{"type": "text", "text": "НАТ. ОЗЕРО — ДЕНЬ"}]}
 ACTION = {"type": "action", "content": [{"type": "text", "text": "Вера молчит."}]}
@@ -306,10 +310,12 @@ def test_long_note_is_read_in_parts(authors: Any) -> None:
     assert json.loads(read_story_note(run, short))["parts"] == 1
 
 
-def _chat_file(author: Any, project_id: str, session: str, name: str = "Эпоха.txt") -> str:
+def _chat_file(
+    author: Any, project_id: str, session: str, name: str = "Эпоха.txt", data: bytes = "Москва, 1913".encode()
+) -> str:
     uploaded = author.post(
         f"/api/v1/projects/{project_id}/files",
-        files={"file": (name, "Москва, 1913".encode())},
+        files={"file": (name, data)},
         data={"purpose": "chat", "session_id": session},
     )
     assert uploaded.status_code == 201, uploaded.text
@@ -453,12 +459,18 @@ def test_no_tool_deletes_trashes_or_decides() -> None:
     assert {tool.__name__ for tool in CHANGING_TOOLS} == {
         "create_story_note",
         "save_chat_file_to_notes",
+        "import_chat_file_as_draft",
+        "create_story_from_chat_file",
         "update_story_note",
         "create_story_document",
         "update_story_document",
         "comment_on_screenplay",
     }
-    assert tools.suggest_edit in READING_TOOLS and tools.search_story in READING_TOOLS
+    assert (
+        tools.suggest_edit in READING_TOOLS
+        and tools.read_chat_file_scenes in READING_TOOLS
+        and tools.search_story in READING_TOOLS
+    )
 
 
 # --- the pause before every change
@@ -474,7 +486,8 @@ def test_every_change_waits_for_an_answer() -> None:
     assert {name for name, waiting in waits.items() if waiting} == {tool.__name__ for tool in CHANGING_TOOLS}
     assert waits["suggest_edit"] is False and waits["read_screenplay"] is False and waits["search_story"] is False
     assert waits["search_sources"] is False and waits["cite_source"] is False
-    assert waits["web_search"] is False
+    assert waits["web_search"] is False and waits["read_chat_file_scenes"] is False
+    assert waits["import_chat_file_as_draft"] is True and waits["create_story_from_chat_file"] is True
     assert len(waits) == len(READING_TOOLS) + len(CHANGING_TOOLS)
 
 
@@ -681,3 +694,139 @@ def test_nothing_found_in_the_internet(authors: Any, monkeypatch: pytest.MonkeyP
     run = _with_searches(_run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}"), now=1)
     monkeypatch.setattr(yandex, "search", lambda query, client: [])
     assert web_search(run, "киоск").startswith(yandex.NOTHING_FOUND)
+
+
+# --- a screenplay file of the conversation (api/agents, «Сцены файла беседы», «Новый драфт из файла беседы»,
+# «Новая история из файла беседы»)
+
+FERRY = (
+    "INT. КУХНЯ - ДЕНЬ\n\nВера ставит чайник.\n\nEXT. ПРИСТАНЬ - ВЕЧЕР\n\nДАРЬЯН\nФыва\nывафы\n\nОЛЕГ\nПошли.\n"
+).encode()
+
+
+def _ferry(author: Any) -> tuple[str, str, str, RunContext, str]:
+    project_id, draft_id, script_id = _story_with_vera(author)
+    session = f"{project_id}:{draft_id}:{uuid.uuid4()}"
+    file_id = _chat_file(author, project_id, session, "Паром.fountain", FERRY)
+    return project_id, draft_id, script_id, _run(author.subject, session), file_id
+
+
+def test_scenes_of_a_chat_file(authors: Any) -> None:
+    author = authors()
+    _, _, _, run, file_id = _ferry(author)
+    listed = json.loads(read_chat_file_scenes(run, file_id))
+    assert listed["file"] == "Паром.fountain"
+    assert [(s["number"], s["paragraphs"]) for s in listed["scenes"]] == [(1, 2), (2, 5)]
+    scene = json.loads(read_chat_file_scenes(run, file_id, 2))
+    assert scene["paragraphs"][1:3] == [
+        {"type": "character", "text": "ДАРЬЯН"},
+        {"type": "dialogue", "text": "Фыва\nывафы"},
+    ]
+    assert read_chat_file_scenes(run, file_id, 3) == "Отказ: в файле «Паром.fountain» сцен 2, сцены 3 нет."
+
+
+def test_scenes_of_a_pdf_are_refused(authors: Any) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    session = f"{project_id}:{draft_id}:{uuid.uuid4()}"
+    file_id = _chat_file(author, project_id, session, "Эпоха.md", "# Эпоха".encode())
+    refused = read_chat_file_scenes(_run(author.subject, session), file_id)
+    assert refused.startswith("Отказ:") and "только текстом (read_chat_file)" in refused
+
+
+def test_a_scene_of_the_file_goes_to_a_suggestion_as_it_is(authors: Any) -> None:
+    author = authors()
+    _, _, script_id, run, file_id = _ferry(author)
+    paragraphs = json.loads(read_chat_file_scenes(run, file_id, 2))["paragraphs"]
+    answer = suggest_edit(run, "s3", "", "", "Сцена из файла", "scene_end", paragraphs)
+    assert "5 абз." in answer
+    (suggestion,) = author.get(f"/api/v1/documents/{script_id}/suggestions?status=open").json()
+    assert suggestion["paragraphs"] == paragraphs
+
+
+def test_chat_file_becomes_a_new_draft(authors: Any) -> None:
+    author = authors()
+    project_id, draft_id, script_id, run, file_id = _ferry(author)
+    before = author.get(f"/api/v1/documents/{script_id}/text").json()
+
+    made = _done(import_chat_file_as_draft(run, file_id, "Паром"))
+
+    assert made["done"] == "Создан драфт «Паром» из файла «Паром.fountain»"
+    assert made["target"]["type"] == "draft" and made["target"]["project"] == project_id
+    drafts = author.get(f"/api/v1/projects/{project_id}/drafts").json()
+    assert [d["name"] for d in drafts if d["id"] == made["target"]["id"]] == ["Паром"]
+    assert author.get(f"/api/v1/documents/{script_id}/text").json() == before
+    names = [d["name"] for d in author.get(f"/api/v1/drafts/{made['target']['id']}/documents").json()]
+    assert {"Вера", "Дарьян", "Олег"} <= set(names)
+
+
+def test_chat_file_becomes_a_new_story(authors: Any) -> None:
+    author = authors()
+    project_id, _, _, run, file_id = _ferry(author)
+
+    made = _done(create_story_from_chat_file(run, file_id, "Паром 2"))
+
+    assert made["done"] == "Создана история «Паром 2» из файла «Паром.fountain»"
+    assert made["target"]["type"] == "project" and made["target"]["id"] != project_id
+    shelf = {p["id"]: p["title"] for p in author.get("/api/v1/projects").json()}
+    assert shelf[made["target"]["id"]] == "Паром 2"
+    drafts = author.get(f"/api/v1/projects/{made['target']['id']}/drafts").json()
+    assert [d["id"] for d in drafts] == [made["target"]["draft"]]
+    assert len(author.get(f"/api/v1/projects/{project_id}/drafts").json()) == 1
+
+
+def test_a_starc_file_names_what_it_did_not_carry(authors: Any) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    session = f"{project_id}:{draft_id}:{uuid.uuid4()}"
+    file_id = _chat_file(author, project_id, session, "Облако.starc", cloud_project())
+    made = _done(import_chat_file_as_draft(_run(author.subject, session), file_id, "Облако"))
+    assert made["done"].endswith("в файле нет и не перенесены: локация «КОЛИБА», сценарий «Выбор 2»")
+
+
+def test_import_refusals(authors: Any) -> None:
+    author = authors()
+    project_id, draft_id, _ = _story_with_vera(author)
+    session = f"{project_id}:{draft_id}:{uuid.uuid4()}"
+    run = _run(author.subject, session)
+    pdf = _chat_file(author, project_id, session, "Эпоха.md", "# Эпоха".encode())
+    other = _chat_file(author, project_id, f"{project_id}:{draft_id}:{uuid.uuid4()}", "Паром.fountain", FERRY)
+    refused = import_chat_file_as_draft(run, pdf, "Эпоха")
+    assert refused.startswith("Отказ: Тип файла не поддерживается. Можно: Fountain, Final Draft, STARC, DOCX, TXT.")
+    assert create_story_from_chat_file(run, pdf, "Эпоха").startswith("Отказ: Тип файла не поддерживается.")
+    for answer in (
+        import_chat_file_as_draft(run, other, "Паром"),
+        create_story_from_chat_file(run, other, "Паром"),
+        read_chat_file_scenes(run, other),
+        import_chat_file_as_draft(run, "not-an-id", "Паром"),
+    ):
+        assert answer == "Отказ: файл не найден в этой беседе."
+    assert len(author.get(f"/api/v1/projects/{project_id}/drafts").json()) == 1
+    assert [p["title"] for p in author.get("/api/v1/projects").json()] == ["Тихая вода"]
+
+
+def test_a_reviewer_reads_the_scenes_but_does_not_import(authors: Any) -> None:
+    owner, reviewer = authors(), authors()
+    project_id, draft_id, _ = _story_with_vera(owner)
+    invited = owner.post(
+        f"/api/v1/projects/{project_id}/invitations", json={"email": reviewer.email, "role": "reviewer"}
+    )
+    assert invited.status_code == 201, invited.text
+    assert reviewer.get("/api/v1/me").status_code == 200
+    session = f"{project_id}:{draft_id}:{uuid.uuid4()}"
+    file_id = _chat_file(reviewer, project_id, session, "Паром.fountain", FERRY)
+    run = _run(reviewer.subject, session)
+    assert json.loads(read_chat_file_scenes(run, file_id))["file"] == "Паром.fountain"
+    assert import_chat_file_as_draft(run, file_id, "Паром").startswith("Отказ:")
+    assert create_story_from_chat_file(run, file_id, "Паром").startswith("Отказ:")
+    assert len(owner.get(f"/api/v1/projects/{project_id}/drafts").json()) == 1
+
+
+def test_a_suggested_dialogue_keeps_its_line_break(authors: Any) -> None:
+    author = authors()
+    project_id, draft_id, script_id = _story_with_vera(author)
+    run = _run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}")
+    lines = [{"type": "character", "text": "ДАРЬЯН"}, {"type": "dialogue", "text": "Фыва\nывафы"}]
+    suggest_edit(run, "s3", "Вера молчит", "", "Реплика", "after", lines)
+    (suggestion,) = author.get(f"/api/v1/documents/{script_id}/suggestions?status=open").json()
+    assert suggestion["paragraphs"] == lines

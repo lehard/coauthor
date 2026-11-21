@@ -4,8 +4,8 @@ import type { EntityKind } from "@/data/model";
 import { PROFILE } from "@/data/profiles";
 
 import type { ProjectData } from "../ProjectContext";
-import type { DocRef } from "../docRef";
-import { readOutcome, type Target } from "./outcome";
+import { docPath, type DocRef } from "../docRef";
+import { outsidePath, readOutcome, type Target } from "./outcome";
 
 // Actions of the co-author in the chat (openspec/specs/web/workspace, «Подтверждение действия
 // соавтора», «Сделанное соавтором в чате»). The names are the changing tools of the backend
@@ -15,6 +15,8 @@ import { readOutcome, type Target } from "./outcome";
 export const CHANGING_TOOLS = [
   "create_story_note",
   "save_chat_file_to_notes",
+  "import_chat_file_as_draft",
+  "create_story_from_chat_file",
   "update_story_note",
   "create_story_document",
   "update_story_document",
@@ -96,6 +98,16 @@ export function describeAction(
       };
     case "save_chat_file_to_notes":
       return { title: "Сохранить файл в заметки", detail: "" };
+    case "import_chat_file_as_draft":
+      return {
+        title: `Импортировать файл в новый драфт «${text(args, "name")}»`,
+        detail: "",
+      };
+    case "create_story_from_chat_file":
+      return {
+        title: `Создать историю «${text(args, "title")}» из файла`,
+        detail: "",
+      };
     case "update_story_note": {
       const note = noteName(data, text(args, "note_id"));
       if (text(args, "append") !== "")
@@ -250,10 +262,20 @@ export function targetRef(target: Target): DocRef {
   return { kind: "part", part: "text" };
 }
 
+/** Where the line of a done call leads: a new draft or story, or a thing of the draft of the conversation. */
+export function targetPath(
+  draft: { id: string; projectId: string },
+  target: Target,
+): string {
+  return outsidePath(target) ?? docPath(draft, targetRef(target));
+}
+
 /** What a done call changed, for the screens to read it again. */
 export function changedResources(content: string): string[] {
   const done = doneOf(content);
   if (done === null) return [];
+  if (done.target.type === "draft") return ["drafts"];
+  if (done.target.type === "project") return ["projects"];
   if (done.target.type === "note") return ["notes"];
   if (done.target.type === "comment") return ["comments"];
   return ["characters", "locations", "worlds", "scripts"];

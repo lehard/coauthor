@@ -68,7 +68,7 @@ function SuggestedText({
             <span className="font-sans text-caption text-muted-foreground">
               {ELEMENTS[p.type].label}
             </span>
-            <span>{p.text}</span>
+            <span className="whitespace-pre-line">{p.text}</span>
           </li>
         ))}
       </ol>

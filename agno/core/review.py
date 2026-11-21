@@ -425,8 +425,10 @@ def _paragraphs(value: object) -> list[Paragraph]:
             )
         if not isinstance(text, str) or not text.strip():
             raise Invalid(f"{where}: текст абзаца не может быть пустым.", "paragraphs")
-        if "\n" in text or "\r" in text:
-            raise Invalid(f"{where}: в абзаце нет переноса строки, каждая строка — отдельный абзац.", "paragraphs")
+        # A line break inside a paragraph is «\n», as the screenplay keeps it after an import (api/review,
+        # «Проверка абзацев предложения»); a carriage return is not text of the editor.
+        if "\r" in text:
+            raise Invalid(f"{where}: перенос строки внутри абзаца — только «\\n», без «\\r».", "paragraphs")
         if kind == "parenthetical" and text.strip().startswith("(") and text.strip().endswith(")"):
             raise Invalid(f"{where}: ремарку пиши без скобок, их добавляет оформление.", "paragraphs")
         found.append(Paragraph(kind, text))

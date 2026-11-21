@@ -284,7 +284,7 @@ def test_start_of_a_new_screenplay(connection: Connection) -> None:
         ("after", "s3", "Вера молчит", "", [{"type": "speech", "text": "Да"}], "неизвестный тип «speech»"),
         ("scene_end", "s3", "", "", [], "непустой список"),
         ("scene_end", "s3", "", "", [{"type": "action", "text": "  "}], "не может быть пустым"),
-        ("scene_end", "s3", "", "", [{"type": "action", "text": "Раз\nдва"}], "переноса строки"),
+        ("scene_end", "s3", "", "", [{"type": "action", "text": "Раз\r\nдва"}], "без «\\\\r»"),
         ("scene_end", "s3", "", "", [{"type": "action", "text": "Да", "color": "1"}], "ровно с полями"),
         ("scene_end", "s3", "", "", [{"type": "parenthetical", "text": "(тихо)"}], "без скобок"),
         ("script_end", "", "Вера молчит", "", LINES, "нет цитаты"),
@@ -304,6 +304,15 @@ def test_wrong_place_or_paragraphs_are_refused(
     with pytest.raises(Invalid, match=reason):
         create_suggestion(connection, script_id, scene_uid, quote, line, "", SESSION, place, paragraphs)
     assert list_suggestions(connection, script_id, None) == []
+
+
+def test_line_break_inside_a_paragraph_stays(connection: Connection) -> None:
+    """A dialogue on two lines, as an import keeps it, is one paragraph with «\n» (api/review)."""
+    _, script_id, _ = _story(connection)
+    paragraphs = [{"type": "character", "text": "ДАРЬЯН"}, {"type": "dialogue", "text": "Фыва\nывафы"}]
+    create_suggestion(connection, script_id, "s3", "", "", "", SESSION, "scene_end", paragraphs)
+    (listed,) = list_suggestions(connection, script_id, "open")
+    assert listed.paragraphs == [Paragraph("character", "ДАРЬЯН"), Paragraph("dialogue", "Фыва\nывафы")]
 
 
 def test_too_many_paragraphs(connection: Connection) -> None:

@@ -2,44 +2,44 @@
 
 ## 1. Ядро: разбор файла беседы
 
-- [ ] 1.1 В `agno/core/imports.py` добавить `_chat_manuscript` (история файла, `purpose` `chat`, формат через `file_format(name, "import", data)`) и `create_draft_from_chat_file` (design, решения 1–2). Проверить pytest в `agno/tests/test_import.py`:
+- [x] 1.1 В `agno/core/imports.py` добавить `_chat_manuscript` (история файла, `purpose` `chat`, формат через `file_format(name, "import", data)`) и `create_draft_from_chat_file` (design, решения 1–2). Проверить pytest в `agno/tests/test_import.py`:
   - Fountain беседы даёт новый драфт с тем же текстом по типам и абзацам, что импорт кнопкой, у заголовков разные `uid`;
   - «Олег» добавлен, «Вера» не задвоилась;
   - драфт-основа не изменился, в том числе запертый; новый драфт не заперт и без снимка `import`;
   - PDF и MD дают отказ с перечнем форматов импорта, битый FDX — отказ; ни драфта, ни документов нет;
   - файл другой истории — отказ;
   - `.starc` с локацией без профиля возвращает её в `skipped`.
-- [ ] 1.2 Добавить `chat_file_scenes` (design, решение 4). Проверить pytest:
+- [x] 1.2 Добавить `chat_file_scenes` (design, решение 4). Проверить pytest:
   - список сцен с номерами, заголовками и числом абзацев;
   - абзацы сцены 2 с `{type: "dialogue", text: "Фыва\nывафы"}`;
   - номер вне списка — отказ с числом сцен;
   - PDF — отказ.
-- [ ] 1.3 Проверить pytest, что `create_project_from_file` с байтами и именем файла беседы создаёт историю с копией `import`, а файл беседы остаётся `chat` в прежней истории. Проверить в `agno/tests/test_import_routes.py`, что `POST /api/v1/drafts/{id}/import` с файлом `chat` по-прежнему `422`.
-- [ ] 1.4 В `agno/core/review.py` разрешить `\n` в тексте абзаца предложения, оставить отказ на `\r` и обновить текст отказа (design, решение 5). Проверить pytest в `agno/tests/test_review.py`:
+- [x] 1.3 Проверить pytest, что `create_project_from_file` с байтами и именем файла беседы создаёт историю с копией `import`, а файл беседы остаётся `chat` в прежней истории. Проверить в `agno/tests/test_import_routes.py`, что `POST /api/v1/drafts/{id}/import` с файлом `chat` по-прежнему `422`.
+- [x] 1.4 В `agno/core/review.py` разрешить `\n` в тексте абзаца предложения, оставить отказ на `\r` и обновить текст отказа (design, решение 5). Проверить pytest в `agno/tests/test_review.py`:
   - абзац «Фыва\nывафы» сохраняется и возвращается списком как есть;
   - «Фыва\r\nывафы» — отказ;
   - прежние отказы (тип, скобки, пустой список) проходят.
 
 ## 2. Инструменты и промпт соавтора
 
-- [ ] 2.1 В `agno/agents/coauthor_tools.py` добавить `read_chat_file_scenes` в `READING_TOOLS`, а `import_chat_file_as_draft` и `create_story_from_chat_file` — в `CHANGING_TOOLS`, с правами и целями `draft` и `project` (design, решение 6). Обновить описание `suggest_edit` о переносе строки. Проверить pytest в `agno/tests/test_coauthor_tools.py`:
+- [x] 2.1 В `agno/agents/coauthor_tools.py` добавить `read_chat_file_scenes` в `READING_TOOLS`, а `import_chat_file_as_draft` и `create_story_from_chat_file` — в `CHANGING_TOOLS`, с правами и целями `draft` и `project` (design, решение 6). Обновить описание `suggest_edit` о переносе строки. Проверить pytest в `agno/tests/test_coauthor_tools.py`:
   - файл другой беседы — отказ у всех трёх;
   - рецензент получает отказ по роли у меняющих и читает сцены;
   - сделанное содержит `target` с `draft` и `project`, пропуски STARC — в тексте `done`;
   - оба меняющих стоят на паузе (`requires_confirmation`), чтение сцен — нет;
   - `suggest_edit` с абзацем «Фыва\nывафы» создаёт предложение.
-- [ ] 2.2 Дописать в `agno/skills/coauthor/SKILL.md` выбор между импортом, новой историей, вставкой и заметкой, работу с PDF и MD и строку справки «О сервисе «Соавтор»» об импорте из чата (design, решение 8). Проверить: pytest проверки навыков и промпта проходит; ответы соавтора на просьбы из 4.2 прочитать глазами.
+- [x] 2.2 Дописать в `agno/skills/coauthor/SKILL.md` выбор между импортом, новой историей, вставкой и заметкой, работу с PDF и MD и строку справки «О сервисе «Соавтор»» об импорте из чата (design, решение 8). Проверить: pytest проверки навыков и промпта проходит; ответы соавтора на просьбы из 4.2 прочитать глазами.
 
 ## 3. Чат и карточка предложения
 
-- [ ] 3.1 В `web/src/screens/project/chat/actions.ts` и `outcome.ts`:
+- [x] 3.1 В `web/src/screens/project/chat/actions.ts` и `outcome.ts`:
   - добавить два инструмента в `CHANGING_TOOLS` и их карточки;
   - добавить поля `project` и `draft` в `Target`, функцию `targetPath` и ресурсы `drafts` и `projects` в `changedResources`;
   - в `ActionLines.tsx` перейти на `targetPath`.
 
   Цель без нужного поля — «Не удалось прочитать результат действия» (design, решение 7). Проверить `npm run check:chat --prefix web` случаями: ссылки обеих целей, цель `draft` без `project` нечитаема, заголовки карточек.
-- [ ] 3.2 В `web/src/screens/project/docs/SuggestionViews.tsx` показать перенос строки в абзаце (`whitespace-pre-line`). Проверить `./web/scripts/check_web_tokens.sh` и `npm run build --prefix web`.
-- [ ] 3.3 Проверить в браузере на локальном стенде с источником `api` и записать в `tmp/VERIFY.md`:
+- [x] 3.2 В `web/src/screens/project/docs/SuggestionViews.tsx` показать перенос строки в абзаце (`whitespace-pre-line`). Проверить `./web/scripts/check_web_tokens.sh` и `npm run build --prefix web`.
+- [x] 3.3 Проверить в браузере на локальном стенде с источником `api` и записать в `tmp/VERIFY.md`:
   - режим «Спрашивать» с Fountain-файлом: карточка «Импортировать файл в новый драфт …», после «Разрешить» новый драфт в списке без перезагрузки, ссылка открывает его текст, беседа осталась в старом драфте;
   - «сделай новую историю»: ссылка ведёт в её текст;
   - предложение с репликой в две строки: перенос виден в блоке в тексте и на карточке, «Принять» даёт одну реплику на две строки, одно ⌘Z её убирает.
@@ -48,15 +48,15 @@
 
 ## 4. Замер действий
 
-- [ ] 4.1 Добавить в `agno/evals/coauthor/` папку `files/` с Fountain-файлом по демо-миру (несколько сцен, реплика с переносом строки) и в `actions.py` и `actions_run.py` поддержать ключи `file` и `file_scene`, загрузку файла в беседу просьбы, проверку нового драфта и абзацев сцены (design, решение 9). Сузить `NEEDS_FILE`. Проверить pytest в `agno/tests/test_coauthor_actions.py`:
+- [x] 4.1 Добавить в `agno/evals/coauthor/` папку `files/` с Fountain-файлом по демо-миру (несколько сцен, реплика с переносом строки) и в `actions.py` и `actions_run.py` поддержать ключи `file` и `file_scene`, загрузку файла в беседу просьбы, проверку нового драфта и абзацев сцены (design, решение 9). Сузить `NEEDS_FILE`. Проверить pytest в `agno/tests/test_coauthor_actions.py`:
   - нет файла, импорт без файла, `create_story_from_chat_file` в наборе, сцена вне разбора — ошибка до модели;
   - проверки нового драфта и абзацев сцены на готовых данных, включая провал «Фыва ывафы»;
   - `test_coauthor_actions_draft.py` и `test_coauthor_eval.py` по-прежнему проходят.
-- [ ] 4.2 Добавить в `actions.toml` просьбы «импортируй этот файл», «вставь вторую сцену из файла после …» и «что в этом файле?» с файлом (`expect = "none"`: ничего не импортируется); описать ключи в шапке. Прогнать `python -m evals.coauthor actions-run` на этих просьбах на стенде: они должны проходить. Цену и результат записать в `tmp/VERIFY.md`.
+- [x] 4.2 Добавить в `actions.toml` просьбы «импортируй этот файл», «вставь вторую сцену из файла после …» и «что в этом файле?» с файлом (`expect = "none"`: ничего не импортируется); описать ключи в шапке. Прогнать `python -m evals.coauthor actions-run` на этих просьбах на стенде: они должны проходить. Цену и результат записать в `tmp/VERIFY.md`.
 
 ## 5. Сквозная проверка
 
-- [ ] 5.1 Прогнать `./scripts/validate.sh` (через `env -u BASH_ENV`), `./scripts/dev.sh test`, `git diff --check` и `openspec validate coauthor-import-from-chat --strict`: все проходят.
+- [x] 5.1 Прогнать `./scripts/validate.sh` (через `env -u BASH_ENV`), `./scripts/dev.sh test`, `git diff --check` и `openspec validate coauthor-import-from-chat --strict`: все проходят.
 
 ## Workflow follow-up
 
