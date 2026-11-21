@@ -181,12 +181,21 @@ class ThreadOut(BaseModel):
     messages: list[MessageOut]
 
 
+class ParagraphOut(_Out):
+    type: str
+    text: str
+
+
 class SuggestionOut(_Out):
     id: uuid.UUID
     document_id: uuid.UUID
-    scene_uid: str
-    quote: str
-    text: str
+    # openspec/specs/api/review, «Список предложений»: a line `text` or typed `paragraphs`; no scene or quote where
+    # the place has none.
+    place: str
+    scene_uid: str | None
+    quote: str | None
+    text: str | None
+    paragraphs: list[ParagraphOut] | None
     why: str
     status: str
     author_kind: str

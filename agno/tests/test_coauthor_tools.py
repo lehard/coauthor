@@ -39,9 +39,10 @@ from agents.coauthor_tools import (
     web_search,
 )
 from app.auth import run_principal
+from core import texts
 from core.fields import FIELD_HINTS
 from core.sources import parse_canon, remove_book, save_book
-from core.tables import source_books, source_fragments
+from core.tables import SUGGESTION_PLACES, source_books, source_fragments
 
 SCENE = {"type": "sceneHeading", "attrs": {"uid": "s3"}, "content": [{"type": "text", "text": "НАТ. ОЗЕРО — ДЕНЬ"}]}
 ACTION = {"type": "action", "content": [{"type": "text", "text": "Вера молчит."}]}
@@ -145,6 +146,47 @@ def test_suggestion(authors: Any) -> None:
     (suggestion,) = author.get(f"/api/v1/documents/{script_id}/suggestions?status=open").json()
     assert (suggestion["quote"], suggestion["session_id"]) == ("Вера молчит", session)
     assert author.get(f"/api/v1/documents/{script_id}/text").json()["revision"] == 2
+
+
+def test_suggestion_of_paragraphs(authors: Any) -> None:
+    """openspec/specs/api/agents, «Предложение правки соавтором»: typed paragraphs after the paragraph of a quote."""
+    author = authors()
+    project_id, draft_id, script_id = _story_with_vera(author)
+    run = _run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}")
+    lines = [
+        {"type": "character", "text": "Дядя Коля"},
+        {"type": "parenthetical", "text": "тихо"},
+        {"type": "dialogue", "text": "Пойдём домой."},
+    ]
+    answer = suggest_edit(run, "s3", "Вера молчит", "", "Ответ дяди", "after", lines)
+    assert "3 абз. после абзаца с цитатой" in answer
+    (suggestion,) = author.get(f"/api/v1/documents/{script_id}/suggestions?status=open").json()
+    assert (suggestion["place"], suggestion["paragraphs"], suggestion["text"]) == ("after", lines, None)
+    assert author.get(f"/api/v1/documents/{script_id}/text").json()["revision"] == 2
+
+
+def test_unknown_paragraph_type_is_refused(authors: Any) -> None:
+    author = authors()
+    project_id, draft_id, script_id = _story_with_vera(author)
+    run = _run(author.subject, f"{project_id}:{draft_id}:{uuid.uuid4()}")
+    refused = suggest_edit(run, "", "", "", "", "script_end", [{"type": "speech", "text": "Да"}])
+    assert refused.startswith("Отказ") and "speech" in refused and "dialogue" in refused
+    assert author.get(f"/api/v1/documents/{script_id}/suggestions").json() == []
+
+
+def test_start_of_an_empty_screenplay(authors: Any) -> None:
+    """A new story has only an empty scene heading: the co-author suggests the start of the screenplay."""
+    author = authors()
+    story = author.story("Пусто")
+    run = _run(author.subject, f"{story['project']['id']}:{story['draft_id']}:{uuid.uuid4()}")
+    lines = [{"type": "sceneHeading", "text": "НАТ. ПРИСТАНЬ — ВЕЧЕР"}, {"type": "action", "text": "Паром уходит."}]
+    answer = suggest_edit(run, "", "", "", "Начало", "script_start", lines)
+    assert "в начало сценария" in answer
+
+
+def test_paragraph_types_name_every_type() -> None:
+    assert tuple(tools.PARAGRAPH_TYPES) == texts.ELEMENT_NAMES
+    assert set(tools.PLACE_NAMES) == set(SUGGESTION_PLACES)
 
 
 def test_chat_file_of_this_conversation(authors: Any) -> None:

@@ -13,6 +13,7 @@ from evals.coauthor.actions import (
     Card,
     Changes,
     Request,
+    Suggested,
     check,
     load_set,
     parse_set,
@@ -38,7 +39,7 @@ def _row(**own: Any) -> dict[str, Any]:
 
 def test_release_set_loads() -> None:
     requests = load_set()
-    assert 55 <= len(requests) <= 80
+    assert 55 <= len(requests) <= 90
     assert {r.expect for r in requests} == {*ACTION_TOOLS, "none"}
     assert {r.kind for r in requests if r.expect == "create_story_document"} == {"character", "location", "world"}
     assert any(r.id == "character-vasily" for r in requests)
@@ -235,3 +236,60 @@ def test_long_note_fails() -> None:
     changes = Changes(notes_created=("Синопсис: для зрителя",), notes_created_text=(" ".join(["слово"] * 120),))
     verdict = check(request, ActionRun("viewer", "done", "Сохранил.", 1.0, (call,), changes))
     assert verdict.too_long == ("заметка «Синопсис: для зрителя»: 120 слов, предел 100",)
+
+
+def _suggest(**own: Any) -> dict[str, Any]:
+    return _row(expect="suggest_edit", kind=None, fields=None, suggest_place="after", types=["character"]) | own
+
+
+@pytest.mark.parametrize(
+    ("row", "reason"),
+    [
+        (_suggest(suggest_place=None), "r1: suggest_place must be a non-empty string"),
+        (_suggest(suggest_place="after|middle"), "r1: suggest_place 'middle'"),
+        (_suggest(types=["speech"]), "r1: paragraph type 'speech'"),
+        (_suggest(empty_text="yes"), "r1: empty_text must be true or false"),
+        (_row(suggest_place="after"), "r1: suggest_place do not belong"),
+        (_row(types=["character"]), "r1: types do not belong"),
+    ],
+)
+def test_suggestion_request_refused(row: dict[str, Any], reason: str) -> None:
+    with pytest.raises(ActionSetError, match=reason):
+        parse_set([row])
+
+
+def _suggest_run(*made: Suggested) -> ActionRun:
+    call = Call("suggest_edit", {}, False, "Предложение отправлено автору")
+    return ActionRun("r1", "done", "Готово", 1.0, (call,), Changes(suggestions=len(made), suggested=made))
+
+
+def test_suggestion_at_its_place_with_its_types() -> None:
+    (request,) = parse_set([_suggest(suggest_place="after|scene_end", types=["character", "dialogue"])])
+    made = Suggested("scene_end", ("character", "parenthetical", "dialogue"))
+    verdict = check(request, _suggest_run(made))
+    assert verdict.passed and not verdict.extra
+
+
+def test_reply_as_one_action_fails_by_types() -> None:
+    (request,) = parse_set([_suggest(types=["character", "dialogue"])])
+    verdict = check(request, _suggest_run(Suggested("after", ("action",))))
+    assert not verdict.passed
+    assert verdict.placement == ("типы: ожидались character, dialogue; получены action",)
+
+
+def test_suggestion_at_another_place_fails() -> None:
+    (request,) = parse_set([_suggest(suggest_place="after|scene_end")])
+    verdict = check(request, _suggest_run(Suggested("replace", ("character",))))
+    assert verdict.placement == ("место replace вместо after|scene_end",)
+
+
+def test_two_suggestions_fail() -> None:
+    (request,) = parse_set([_suggest()])
+    verdict = check(request, _suggest_run(Suggested("after", ("character",)), Suggested("after", ("character",))))
+    assert not verdict.passed and verdict.placement == ("предложений: 2 вместо 1",)
+
+
+def test_suggestion_nobody_asked_for() -> None:
+    (request,) = parse_set([_row()])
+    run = ActionRun("r1", "done", "", 1.0, (), Changes(suggestions=1, suggested=(Suggested("after", ()),)))
+    assert "предложений правки: 1" in check(request, run).extra

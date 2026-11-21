@@ -17,8 +17,17 @@ from sqlalchemy.orm import aliased
 
 from core.documents import Document, document_row, ensure_open
 from core.errors import Conflict, Forbidden, Invalid, NotFound
-from core.tables import SUGGESTION_STATUSES, comment_messages, comment_threads, suggestions, users
-from core.texts import block_text, get_text, keep_text, scenes
+from core.tables import (
+    QUOTE_PLACES,
+    SCRIPT_PLACES,
+    SUGGESTION_PLACES,
+    SUGGESTION_STATUSES,
+    comment_messages,
+    comment_threads,
+    suggestions,
+    users,
+)
+from core.texts import ELEMENT_NAMES, Scene, block_text, get_text, keep_text, scenes
 
 # The name the co-author signs its messages with; it is no user and has no display name.
 COAUTHOR_NAME = "Соавтор"
@@ -48,12 +57,24 @@ class Thread:
 
 
 @dataclass(frozen=True)
+class Paragraph:
+    """A suggested paragraph: one of the paragraph types of the editor and its text."""
+
+    type: str
+    text: str
+
+
+@dataclass(frozen=True)
 class Suggestion:
     id: uuid.UUID
     document_id: uuid.UUID
-    scene_uid: str
-    quote: str
-    text: str
+    place: str
+    # None where the place has no scene or quote (openspec/specs/api/review, «Поля места предложения»).
+    scene_uid: str | None
+    quote: str | None
+    # A line in a paragraph, or None for a suggestion of paragraphs.
+    text: str | None
+    paragraphs: list[Paragraph] | None
     why: str
     status: str
     # The conversation of a suggestion of the co-author; none for a participant's one.
@@ -188,13 +209,19 @@ def create_thread(
     return get_thread(connection, thread_id)
 
 
+def _scene(connection: Connection, document_id: uuid.UUID, scene_uid: str) -> Scene:
+    """The scene with this uid in the saved text of the screenplay."""
+    scene = next((s for s in scenes(get_text(connection, document_id).content) if s.uid == scene_uid), None)
+    if scene is None:
+        raise NotFound(f"Сцены {scene_uid} нет в тексте сценария.")
+    return scene
+
+
 def _scene_of_quote(connection: Connection, document_id: uuid.UUID, scene_uid: str, quote: str) -> None:
     """The scene is in the text of the screenplay, and the quote is inside one of its paragraphs."""
     if not quote:
         raise Invalid("Цитата не может быть пустой.", "quote")
-    scene = next((s for s in scenes(get_text(connection, document_id).content) if s.uid == scene_uid), None)
-    if scene is None:
-        raise NotFound(f"Сцены {scene_uid} нет в тексте сценария.")
+    scene = _scene(connection, document_id, scene_uid)
     if not any(quote in block_text(block) for block in scene.blocks):
         raise Invalid(f"Цитата не найдена в сцене {scene.number}.", "quote")
 
@@ -352,9 +379,11 @@ def _suggestion(row: Row[Any]) -> Suggestion:
     return Suggestion(
         id=row.id,
         document_id=row.document_id,
+        place=row.place,
         scene_uid=row.scene_uid,
         quote=row.quote,
         text=row.text,
+        paragraphs=None if row.paragraphs is None else [Paragraph(p["type"], p["text"]) for p in row.paragraphs],
         why=row.why,
         status=row.status,
         session_id=row.session_id,
@@ -372,6 +401,82 @@ def _suggestion_by_id(connection: Connection, suggestion_id: uuid.UUID) -> Sugge
     return _suggestion(connection.execute(_suggestions().where(suggestions.c.id == suggestion_id)).one())
 
 
+# More paragraphs than a long scene has (about 100) is a mistake, not a suggestion (design of
+# coauthor-typed-suggestions, decision 3).
+MAX_PARAGRAPHS = 300
+
+
+def _paragraphs(value: object) -> list[Paragraph]:
+    """Suggested paragraphs (openspec/specs/api/review, «Проверка абзацев предложения»): a type of the editor is never
+    replaced by another."""
+    if not isinstance(value, list) or not value:
+        raise Invalid("Абзацы предложения: нужен непустой список абзацев {type, text}.", "paragraphs")
+    if len(value) > MAX_PARAGRAPHS:
+        raise Invalid(f"Абзацы предложения: не больше {MAX_PARAGRAPHS} абзацев.", "paragraphs")
+    found: list[Paragraph] = []
+    for number, item in enumerate(value, 1):
+        where = f"Абзац {number}"
+        if not isinstance(item, dict) or set(item) != {"type", "text"}:
+            raise Invalid(f"{where}: нужен объект ровно с полями type и text.", "paragraphs")
+        kind, text = item["type"], item["text"]
+        if kind not in ELEMENT_NAMES:
+            raise Invalid(
+                f"{where}: неизвестный тип «{kind}»; допустимые типы: {', '.join(ELEMENT_NAMES)}.", "paragraphs"
+            )
+        if not isinstance(text, str) or not text.strip():
+            raise Invalid(f"{where}: текст абзаца не может быть пустым.", "paragraphs")
+        if "\n" in text or "\r" in text:
+            raise Invalid(f"{where}: в абзаце нет переноса строки, каждая строка — отдельный абзац.", "paragraphs")
+        if kind == "parenthetical" and text.strip().startswith("(") and text.strip().endswith(")"):
+            raise Invalid(f"{where}: ремарку пиши без скобок, их добавляет оформление.", "paragraphs")
+        found.append(Paragraph(kind, text))
+    return found
+
+
+@dataclass(frozen=True)
+class _Content:
+    scene_uid: str | None
+    quote: str | None
+    text: str | None
+    paragraphs: list[Paragraph] | None
+
+
+def _place_content(
+    connection: Connection,
+    document_id: uuid.UUID,
+    place: object,
+    scene_uid: str,
+    quote: str,
+    text: str,
+    paragraphs: object,
+) -> _Content:
+    """The fields the place needs and nothing else (openspec/specs/api/review, «Поля места предложения»); the scene
+    and the quote are found in the saved text."""
+    if place not in SUGGESTION_PLACES:
+        raise Invalid(f"Место предложения должно быть одним из: {', '.join(SUGGESTION_PLACES)}.", "place")
+    if place in SCRIPT_PLACES:
+        if scene_uid:
+            raise Invalid(f"У места {place} нет сцены: scene_uid должен быть пустым.", "scene_uid")
+    elif not scene_uid:
+        raise Invalid(f"У места {place} нужен uid сцены.", "scene_uid")
+    if place in QUOTE_PLACES:
+        if not quote:
+            raise Invalid(f"У места {place} нужна цитата из абзаца сцены.", "quote")
+    elif quote:
+        raise Invalid(f"У места {place} нет цитаты: quote должна быть пустой.", "quote")
+    lines = paragraphs is None
+    if lines and place != "replace":
+        raise Invalid(f"У места {place} нужны абзацы paragraphs.", "paragraphs")
+    if not lines and text:
+        raise Invalid("Нужен либо текст строкой, либо абзацы paragraphs, не то и другое.", "text")
+    found = None if lines else _paragraphs(paragraphs)
+    if place in QUOTE_PLACES:
+        _scene_of_quote(connection, document_id, scene_uid, quote)
+    elif scene_uid:
+        _scene(connection, document_id, scene_uid)
+    return _Content(scene_uid or None, quote or None, text if lines else None, found)
+
+
 def create_suggestion(
     connection: Connection,
     document_id: uuid.UUID,
@@ -380,20 +485,28 @@ def create_suggestion(
     text: str,
     why: str,
     session_id: str,
+    place: str = "replace",
+    paragraphs: object = None,
 ) -> Suggestion:
-    """A co-author suggestion anchored by a scene and an exact quote inside one of its paragraphs.
+    """A co-author suggestion at its place: a line instead of a quote inside one paragraph, or typed paragraphs
+    (design of coauthor-typed-suggestions, decisions 2–3).
 
-    The saved text does not change: the browser places the suggestion mark when it gets the suggestion.
+    The saved text does not change: the browser places the mark of a line when it gets the suggestion, and finds the
+    place of paragraphs by their anchor.
     """
     ensure_open(connection, _screenplay(connection, document_id))
-    _scene_of_quote(connection, document_id, scene_uid, quote)
+    content = _place_content(connection, document_id, place, scene_uid, quote, text, paragraphs)
     suggestion_id = connection.execute(
         insert(suggestions)
         .values(
             document_id=document_id,
-            scene_uid=scene_uid,
-            quote=quote,
-            text=text,
+            place=place,
+            scene_uid=content.scene_uid,
+            quote=content.quote,
+            text=content.text,
+            paragraphs=None
+            if content.paragraphs is None
+            else [{"type": p.type, "text": p.text} for p in content.paragraphs],
             why=why,
             session_id=session_id,
             author_kind="coauthor",
@@ -434,6 +547,7 @@ def create_user_suggestion(
         insert(suggestions).values(
             id=suggestion_id,
             document_id=document_id,
+            place="replace",
             scene_uid=scene_uid,
             quote=quote,
             text=text,

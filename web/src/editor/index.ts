@@ -47,7 +47,9 @@ import {
 } from "./plugins/comments.ts";
 import { commentsPlugin } from "./plugins/commentsPlugin.ts";
 import {
+  acceptBlockSuggestion,
   acceptSuggestion,
+  rejectBlockSuggestion,
   rejectSuggestion,
   setSuggestions,
   suggestionRanges,
@@ -386,24 +388,81 @@ export class ScreenplayEditorView {
       scene,
       comments: comments.quotes,
       suggestions: this.shownSuggestions(s, suggestions.order),
-      marked: suggestions.order,
+      marked: [...suggestions.order, ...suggestions.places.keys()],
     };
   }
 
+  /**
+   * Shown suggestions in text order with the text they would replace: marks of lines and places of
+   * paragraphs (an insertion replaces nothing: its old text is empty).
+   */
   private shownSuggestions(
     s: EditorState,
     order: string[],
   ): [string, string][] {
     const hidden = hiddenIn(s);
-    return order.flatMap((id): [string, string][] => {
+    const shown: { at: number; id: string; old: string }[] = [];
+    for (const id of order) {
       const ranges = suggestionRanges(s.doc, id);
       const first = ranges[0];
       if (first === undefined || hidden.has(blockIndex(s.doc, first.from)))
-        return [];
-      return [
-        [id, ranges.map((r) => s.doc.textBetween(r.from, r.to)).join(" ")],
-      ];
-    });
+        continue;
+      const old = ranges.map((r) => s.doc.textBetween(r.from, r.to)).join(" ");
+      shown.push({ at: first.from, id, old });
+    }
+    const state = suggestionsKey.getState(s);
+    if (state === undefined) throw new Error("Плагин suggestions не подключён");
+    for (const [id, place] of state.places)
+      shown.push({ at: place.from, id, old: this.blockOld(s, id, place) });
+    return shown
+      .sort((a, b) => a.at - b.at)
+      .map(({ id, old }): [string, string] => [id, old]);
+  }
+
+  /**
+   * What a suggestion of paragraphs shows as «было»: the paragraphs it replaces, one per line; for
+   * an insertion after a paragraph — that paragraph, at the end of a scene — its heading, at the
+   * start or the end of the screenplay — nothing.
+   */
+  private blockOld(
+    s: EditorState,
+    id: string,
+    place: { from: number; to: number },
+  ): string {
+    if (place.from < place.to)
+      return s.doc.textBetween(place.from, place.to, "\n");
+    const block = suggestionsKey.getState(s)?.blocks.get(id);
+    if (block === undefined) throw new Error(`Нет предложения ${id}`);
+    if (block.place === "after")
+      return s.doc.resolve(place.from).nodeBefore?.textContent ?? "";
+    if (block.place === "scene_end") {
+      let heading = "";
+      s.doc.forEach((node) => {
+        if (
+          node.type.name === "sceneHeading" &&
+          node.attrs.uid === block.sceneUid
+        )
+          heading = node.textContent;
+      });
+      return heading;
+    }
+    return "";
+  }
+
+  /** The place of an open suggestion of paragraphs, or undefined for a line. */
+  private blockPlace(id: string): { from: number; to: number } | undefined {
+    const state = suggestionsKey.getState(this.view.state);
+    if (state === undefined) throw new Error("Плагин suggestions не подключён");
+    return state.places.get(id);
+  }
+
+  /** The struck paragraphs and the block of a suggestion of paragraphs, as drawn. */
+  private blockDom(id: string): HTMLElement[] {
+    return [
+      ...this.view.dom.querySelectorAll<HTMLElement>(
+        `[data-suggestion-id="${CSS.escape(id)}"]`,
+      ),
+    ].filter((el) => el.getClientRects().length > 0);
   }
 
   undo(): void {
@@ -550,9 +609,15 @@ export class ScreenplayEditorView {
     setSuggestions(meta)(this.view.state, this.view.dispatch);
   }
 
-  /** «Принять»: the old text becomes `text`; false when the suggestion is not in the text. */
-  acceptSuggestion(id: string, text: string): boolean {
-    return acceptSuggestion(id, text)(this.view.state, this.view.dispatch);
+  /**
+   * «Принять»: the old text becomes the line `text`, or the paragraphs of a suggestion of
+   * paragraphs go to its place (`text` null); false when the suggestion is not in the text.
+   */
+  acceptSuggestion(id: string, text: string | null): boolean {
+    const { state, dispatch } = this.view;
+    return text === null
+      ? acceptBlockSuggestion(id)(state, dispatch)
+      : acceptSuggestion(id, text)(state, dispatch);
   }
 
   /**
@@ -578,11 +643,27 @@ export class ScreenplayEditorView {
 
   /** «Отклонить»: the text stays; false when the suggestion is not in the text. */
   rejectSuggestion(id: string): boolean {
-    return rejectSuggestion(id)(this.view.state, this.view.dispatch);
+    const { state, dispatch } = this.view;
+    return this.blockPlace(id) === undefined
+      ? rejectSuggestion(id)(state, dispatch)
+      : rejectBlockSuggestion(id)(state, dispatch);
   }
 
   /** Like `commentAnchor`; the bottom also takes the suggested text shown after the place. */
   suggestionAnchor(id: string): CommentAnchor | null {
+    if (this.blockPlace(id) !== undefined) {
+      const drawn = this.blockDom(id);
+      if (drawn.length === 0) return null;
+      const box = this.container.getBoundingClientRect();
+      const page = this.view.dom.getBoundingClientRect();
+      const rects = drawn.map((el) => el.getBoundingClientRect());
+      return {
+        top: Math.min(...rects.map((r) => r.top)) - box.top,
+        bottom: Math.max(...rects.map((r) => r.bottom)) - box.top,
+        pageRight: page.right - box.left,
+        width: box.width,
+      };
+    }
     const anchor = this.anchor(suggestionRanges(this.view.state.doc, id));
     const ins = this.view.dom.querySelector(
       `ins[data-suggestion-id="${CSS.escape(id)}"]`,
@@ -594,13 +675,45 @@ export class ScreenplayEditorView {
   }
 
   scrollToSuggestion(id: string): boolean {
+    if (this.blockPlace(id) !== undefined) {
+      const first = this.blockDom(id)[0];
+      first?.scrollIntoView({ block: "center" });
+      return first !== undefined;
+    }
     const dom = this.firstPlace(suggestionRanges(this.view.state.doc, id));
     dom?.scrollIntoView({ block: "center" });
     return dom !== null;
   }
 
-  /** Selects the old text of the suggestion and focuses the editor, so the chat picks it up. */
+  /**
+   * Selects the old text of the suggestion and focuses the editor, so the chat picks it up. A
+   * suggestion of paragraphs selects the paragraphs it replaces or the paragraph its insertion
+   * follows; the start and the end of the screenplay select nothing.
+   */
   selectSuggestion(id: string): boolean {
+    const place = this.blockPlace(id);
+    if (place !== undefined) {
+      const { state } = this.view;
+      let range: { from: number; to: number } | null = null;
+      if (place.from < place.to)
+        range = { from: place.from + 1, to: place.to - 1 };
+      else if (place.from > 0 && place.from < state.doc.content.size) {
+        const before = state.doc.resolve(place.from).nodeBefore;
+        if (before !== null)
+          range = {
+            from: place.from - before.nodeSize + 1,
+            to: place.from - 1,
+          };
+      }
+      if (range !== null)
+        this.view.dispatch(
+          state.tr.setSelection(
+            TextSelection.create(state.doc, range.from, range.to),
+          ),
+        );
+      this.view.focus();
+      return true;
+    }
     const ranges = suggestionRanges(this.view.state.doc, id);
     const first = ranges[0];
     const last = ranges.at(-1);
@@ -641,13 +754,22 @@ export class ScreenplayEditorView {
    */
   showCardGap(id: string, height: number): CardGapPlace | null {
     const { state } = this.view;
+    const block = this.blockPlace(id);
     const ranges = [
       ...commentRanges(state.doc, id),
       ...suggestionRanges(state.doc, id),
     ];
-    if (this.firstPlace(ranges) === null) return null;
-    const end = Math.max(...ranges.map((r) => r.to));
-    const pos = state.doc.resolve(end).after(1);
+    if (
+      block === undefined
+        ? this.firstPlace(ranges) === null
+        : this.blockDom(id).length === 0
+    )
+      return null;
+    // A suggestion of paragraphs ends between paragraphs, after its block.
+    const pos =
+      block === undefined
+        ? state.doc.resolve(Math.max(...ranges.map((r) => r.to))).after(1)
+        : block.to;
     // The gap is inside the page, so it is scaled with it; the card over it is not.
     const meta: CardGapMeta = {
       show: {
@@ -765,7 +887,11 @@ export { FIND_SCOPES, type FindScope } from "./plugins/find.ts";
 export type { SuggestData } from "./plugins/suggest.ts";
 export type { CommentsMeta } from "./plugins/comments.ts";
 export type { SuggestionsMeta } from "./plugins/suggestions.ts";
-export type { SuggestionAnchor } from "./anchors.ts";
+export type {
+  BlockPlace,
+  BlockSuggestion,
+  SuggestionAnchor,
+} from "./anchors.ts";
 export type { ReviewRequests } from "./plugins/bubbleMenu.ts";
 export { PrintError } from "./exporters/print.ts";
 export type { TitlePage } from "./exporters/print.ts";

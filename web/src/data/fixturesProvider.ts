@@ -78,6 +78,8 @@ const store = {
   })),
   suggestions: FIXTURES.suggestions.map((s) => ({
     ...structuredClone(s),
+    place: "replace",
+    paragraphs: null,
     authorKind: "coauthor",
     authorName: "Соавтор",
   })),
@@ -624,6 +626,8 @@ export const fixturesProvider: DataProvider = {
       const values = variables as NewSuggestion;
       row = {
         ...values,
+        place: "replace",
+        paragraphs: null,
         at: now(),
         status: "open",
         decidedAt: null,

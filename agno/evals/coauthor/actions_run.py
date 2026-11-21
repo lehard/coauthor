@@ -11,8 +11,7 @@ which must stay as they were.
 
 import time
 import uuid
-from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from dataclasses import dataclass
 
 from agno.run.authorization import authorization_scope
 from agno.run.base import RunStatus
@@ -21,12 +20,11 @@ from agents.coauthor import coauthor
 from billing import ModelPrice
 from core import notes, review, texts
 from core.documents import list_documents
-from core.drafts import create_draft
 from core.engine import get_engine
-from evals.coauthor.actions import ActionRun, Card, Changes, Request
+from evals.coauthor.actions import ActionRun, Card, Changes, Request, Suggested
 from evals.coauthor.demo_notes import demo_notes, restore_notes
 from evals.coauthor.run import caller, calls_of, chat_context, session_db, usage_of
-from evals.coauthor.user import EvalUser, Place
+from evals.coauthor.user import EvalUser, Place, fresh_draft
 
 # A run that keeps pausing after this many confirmations is a failed request, not an endless loop (spec
 # «Подтверждение действий в замере»).
@@ -39,15 +37,8 @@ class Snapshot:
     notes: dict[uuid.UUID, tuple[int, str, str]]  # notes of the story: revision, title and text
     comments: int
     suggestions: int
+    suggested: dict[uuid.UUID, Suggested]  # suggestions of the copy: place and paragraph types
     open_draft: dict[uuid.UUID, tuple[int, str]]  # documents of the open draft: revision and name
-
-
-def fresh_draft(place: Place, request: Request, owner: uuid.UUID) -> Place:
-    """A copy of the open draft for one request; the place now names the copy."""
-    name = f"замер {request.id} {datetime.now(UTC):%Y%m%dT%H%M%SZ}"
-    with get_engine().begin() as connection:
-        draft = create_draft(connection, place.project_id, name, place.draft_id, owner)
-    return replace(place, draft_id=draft.id, draft_name=draft.name)
 
 
 def snapshot(project_id: uuid.UUID, draft_id: uuid.UUID, open_draft_id: uuid.UUID) -> Snapshot:
@@ -61,11 +52,13 @@ def snapshot(project_id: uuid.UUID, draft_id: uuid.UUID, open_draft_id: uuid.UUI
             if document.deleted_at is None
         }
         screenplay = texts.screenplay_id(connection, draft_id)
+        suggested = review.list_suggestions(connection, screenplay, None)
         return Snapshot(
             cards,
             {note.id: (note.revision, note.title, note.body) for note in notes.list_notes(connection, project_id)},
             len(review.list_threads(connection, screenplay)),
-            len(review.list_suggestions(connection, screenplay, None)),
+            len(suggested),
+            {s.id: Suggested(s.place, tuple(p.type for p in s.paragraphs or ())) for s in suggested},
             {document.id: (document.revision, document.name) for document in list_documents(connection, open_draft_id)},
         )
 
@@ -87,6 +80,7 @@ def diff(before: Snapshot, after: Snapshot) -> Changes:
         ),
         comments=after.comments - before.comments,
         suggestions=after.suggestions - before.suggestions,
+        suggested=tuple(made for key, made in after.suggested.items() if key not in before.suggested),
         open_draft=tuple(
             name
             for key, (revision, name) in after.open_draft.items()
@@ -102,7 +96,7 @@ async def run_request(
     started = time.monotonic()
     with get_engine().begin() as connection:
         restore_notes(connection, place.project_id, demo_notes(place.title), owner)
-    copy = fresh_draft(place, request, owner)
+    copy = fresh_draft(place, f"замер {request.id}", request.empty_text, owner)
     before = snapshot(copy.project_id, copy.draft_id, open_draft_id)
     session_id = f"{copy.project_id}:{copy.draft_id}:{uuid.uuid4()}"
     agent = coauthor.deep_copy(update={"db": session_db(session_id, user.subject, None)})

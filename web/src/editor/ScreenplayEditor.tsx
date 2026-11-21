@@ -62,6 +62,7 @@ import {
   type FindScope,
   type ScreenplayDoc,
   type SuggestData,
+  type BlockSuggestion,
   type SuggestionAnchor,
   type ReviewRequests,
   type TitlePage,
@@ -93,7 +94,8 @@ export type ScreenplayEditorHandle = {
   placeComments(anchors: SuggestionAnchor[]): void;
   /** The scene and the words of the page's selection, for a reviewer's comment or suggestion. */
   reviewAnchor(): { sceneUid: string; quote: string } | "paragraph" | null;
-  acceptSuggestion(id: string, text: string): boolean;
+  /** A line `text`, or null for a suggestion of paragraphs. */
+  acceptSuggestion(id: string, text: string | null): boolean;
   rejectSuggestion(id: string): boolean;
   suggestionAnchor(id: string): CommentAnchor | null;
   scrollToSuggestion(id: string): boolean;
@@ -102,15 +104,17 @@ export type ScreenplayEditorHandle = {
 
 /** Co-author suggestions of the text (coauthor-suggestions, decisions 2 and 6). */
 export type EditorSuggestions = {
-  /** Open suggestions: id → suggested text. */
+  /** Open suggestions by a line: id → suggested text. */
   open: Record<string, string>;
+  /** Open suggestions of paragraphs, placed by their anchor (coauthor-typed-suggestions, decision 5). */
+  blocks: Record<string, BlockSuggestion>;
   /** The suggestion whose card is open. */
   active: string | null;
   /** A click on an open suggestion. */
   onOpen: (id: string) => void;
   /** Suggestions with a shown place and their old text, in text order, after every change. */
   onPlaces: (places: [id: string, old: string][]) => void;
-  /** Ids of every suggestion with a mark in the text, after every change. */
+  /** Ids of every suggestion with a place in the text (a mark or a found anchor), after every change. */
   onMarked: (ids: string[]) => void;
 };
 
@@ -310,14 +314,22 @@ export function ScreenplayEditor({
   // Compared as JSON: a new object with the same suggestions is not a change.
   const openSuggestions =
     suggestions === undefined ? undefined : JSON.stringify(suggestions.open);
+  const blockSuggestions =
+    suggestions === undefined ? undefined : JSON.stringify(suggestions.blocks);
   const activeSuggestion = suggestions?.active;
   useEffect(() => {
-    if (openSuggestions === undefined || activeSuggestion === undefined) return;
+    if (
+      openSuggestions === undefined ||
+      blockSuggestions === undefined ||
+      activeSuggestion === undefined
+    )
+      return;
     editor.current?.setSuggestions({
       open: JSON.parse(openSuggestions) as Record<string, string>,
+      blocks: JSON.parse(blockSuggestions) as Record<string, BlockSuggestion>,
       active: activeSuggestion,
     });
-  }, [openSuggestions, activeSuggestion]);
+  }, [openSuggestions, blockSuggestions, activeSuggestion]);
 
   const marked = snap === null ? undefined : snap.marked.join("\n");
   useEffect(() => {

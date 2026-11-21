@@ -4,13 +4,16 @@ import uuid
 from typing import Any
 
 import pytest
-from sqlalchemy import Connection
+from sqlalchemy import Connection, text
+from sqlalchemy.exc import IntegrityError
 
 from core.documents import create_documents, draft_row
 from core.drafts import create_draft, update_draft
 from core.errors import Conflict, Forbidden, Invalid, Locked, NotFound
 from core.projects import create_project
 from core.review import (
+    MAX_PARAGRAPHS,
+    Paragraph,
     add_reply,
     create_coauthor_thread,
     create_suggestion,
@@ -23,7 +26,7 @@ from core.review import (
     set_resolved,
 )
 from core.saves import list_versions
-from core.texts import get_text, heading, put_text, screenplay_id
+from core.texts import get_text, heading, new_screenplay, put_text, screenplay_id
 from core.users import get_or_create_user
 
 SESSION = "story:1"
@@ -227,3 +230,120 @@ def test_filter_and_decide_once(connection: Connection) -> None:
         decide(connection, first.id, "rejected", author)
     with pytest.raises(Invalid):
         list_suggestions(connection, script_id, "maybe")
+
+
+LINES = [{"type": "character", "text": "ДЯДЯ КОЛЯ"}, {"type": "dialogue", "text": "Пойдём домой."}]
+
+
+@pytest.mark.parametrize(
+    ("place", "scene_uid", "quote"),
+    [
+        ("replace", "s3", "Вера молчит"),
+        ("after", "s3", "Вера молчит"),
+        ("scene_end", "s3", ""),
+        ("scene_body", "s3", ""),
+        ("script_start", "", ""),
+        ("script_end", "", ""),
+    ],
+)
+def test_paragraphs_at_every_place(connection: Connection, place: str, scene_uid: str, quote: str) -> None:
+    """openspec/specs/api/review, «Предложение соавтора»: the text stays, the paragraphs keep their types."""
+    _, script_id, _ = _story(connection)
+    before = get_text(connection, script_id)
+    suggestion = create_suggestion(connection, script_id, scene_uid, quote, "", "Сцена", SESSION, place, LINES)
+    assert (suggestion.place, suggestion.scene_uid, suggestion.quote, suggestion.text) == (
+        place,
+        scene_uid or None,
+        quote or None,
+        None,
+    )
+    assert suggestion.paragraphs == [Paragraph("character", "ДЯДЯ КОЛЯ"), Paragraph("dialogue", "Пойдём домой.")]
+    after = get_text(connection, script_id)
+    assert (after.revision, after.content) == (before.revision, before.content)
+
+
+def test_line_suggestion_has_no_paragraphs(connection: Connection) -> None:
+    _, script_id, _ = _story(connection)
+    suggestion = create_suggestion(connection, script_id, "s3", "Вера молчит", "Вера плачет", "", SESSION)
+    assert (suggestion.place, suggestion.text, suggestion.paragraphs) == ("replace", "Вера плачет", None)
+
+
+def test_start_of_a_new_screenplay(connection: Connection) -> None:
+    """A new story has one empty scene heading and no quote: the paragraphs go to the start of the screenplay."""
+    author = get_or_create_user(connection, "s2", "new@authorled.test", "Новый").id
+    _, _, script_id = create_project(connection, author, "Пусто")
+    assert len(get_text(connection, script_id).content["content"]) == len(new_screenplay()["content"])
+    suggestion = create_suggestion(connection, script_id, "", "", "", "", SESSION, "script_start", LINES)
+    assert suggestion.place == "script_start"
+
+
+@pytest.mark.parametrize(
+    ("place", "scene_uid", "quote", "line", "paragraphs", "reason"),
+    [
+        ("speech", "s3", "Вера молчит", "", LINES, "Место предложения"),
+        ("after", "s3", "Вера молчит", "", [{"type": "speech", "text": "Да"}], "неизвестный тип «speech»"),
+        ("scene_end", "s3", "", "", [], "непустой список"),
+        ("scene_end", "s3", "", "", [{"type": "action", "text": "  "}], "не может быть пустым"),
+        ("scene_end", "s3", "", "", [{"type": "action", "text": "Раз\nдва"}], "переноса строки"),
+        ("scene_end", "s3", "", "", [{"type": "action", "text": "Да", "color": "1"}], "ровно с полями"),
+        ("scene_end", "s3", "", "", [{"type": "parenthetical", "text": "(тихо)"}], "без скобок"),
+        ("script_end", "", "Вера молчит", "", LINES, "нет цитаты"),
+        ("script_end", "s3", "", "", LINES, "нет сцены"),
+        ("after", "s3", "", "", LINES, "нужна цитата"),
+        ("scene_end", "s3", "", "Строка", None, "нужны абзацы"),
+        ("replace", "s3", "Вера молчит", "Строка", LINES, "либо текст строкой"),
+        ("scene_end", "", "", "", LINES, "нужен uid сцены"),
+        ("after", "s3", "Вода холодная", "", LINES, "Цитата не найдена в сцене"),
+    ],
+)
+def test_wrong_place_or_paragraphs_are_refused(
+    connection: Connection, place: str, scene_uid: str, quote: str, line: str, paragraphs: Any, reason: str
+) -> None:
+    """openspec/specs/api/review, «Поля места предложения» and «Проверка абзацев предложения»."""
+    _, script_id, _ = _story(connection)
+    with pytest.raises(Invalid, match=reason):
+        create_suggestion(connection, script_id, scene_uid, quote, line, "", SESSION, place, paragraphs)
+    assert list_suggestions(connection, script_id, None) == []
+
+
+def test_too_many_paragraphs(connection: Connection) -> None:
+    _, script_id, _ = _story(connection)
+    many = [{"type": "action", "text": "Тишина."}] * (MAX_PARAGRAPHS + 1)
+    with pytest.raises(Invalid, match=f"не больше {MAX_PARAGRAPHS}"):
+        create_suggestion(connection, script_id, "s3", "", "", "", SESSION, "scene_end", many)
+
+
+def test_scene_of_an_insertion_must_exist(connection: Connection) -> None:
+    _, script_id, _ = _story(connection)
+    with pytest.raises(NotFound, match="Сцены s9 нет"):
+        create_suggestion(connection, script_id, "s9", "", "", "", SESSION, "scene_end", LINES)
+
+
+def test_accepting_paragraphs_keeps_a_snapshot(connection: Connection) -> None:
+    _, script_id, author = _story(connection)
+    suggestion = create_suggestion(connection, script_id, "", "", "", "", SESSION, "script_end", LINES)
+    decide(connection, suggestion.id, "accepted", author)
+    assert [v for v in list_versions(connection, script_id, "text") if v.reason == "suggestion"] != []
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        "'after', 's3', 'Вера', 'Да', NULL",
+        "'script_end', 's3', NULL, NULL, '[]'",
+        "'after', 's3', '', NULL, '[]'",
+        "'replace', 's3', 'Вера', 'Да', '[]'",
+        "'scene_end', 's3', NULL, NULL, '{}'",
+    ],
+)
+def test_table_refuses_a_place_without_its_fields(connection: Connection, values: str) -> None:
+    """openspec/specs/core/database, «Таблица предложений»."""
+    _, script_id, _ = _story(connection)
+    with pytest.raises(IntegrityError), connection.begin_nested():
+        connection.execute(
+            text(
+                "INSERT INTO authorled.suggestions (document_id, place, scene_uid, quote, text, paragraphs, why, "
+                f"session_id, author_kind) VALUES (:script, {values}, '', 'x:y:z', 'coauthor')"
+            ),
+            {"script": script_id},
+        )

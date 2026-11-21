@@ -3,7 +3,7 @@ import { useEffect, useState, type RefObject } from "react";
 
 import { useSuggestions } from "@/data/hooks";
 import type { Suggestion } from "@/data/model";
-import type { SuggestionAnchor } from "@/editor";
+import type { BlockSuggestion, SuggestionAnchor } from "@/editor";
 import type {
   EditorSuggestions,
   ScreenplayEditorHandle,
@@ -45,13 +45,23 @@ export function useEditorSuggestions(
       throw new Error("Редактор сценария ещё не открыт");
     return editor.current;
   };
-  const open = suggestions.filter((s) => s.status === "open");
+  // Decided here: they leave the text before the list comes back from the data source.
+  const [decided, setDecided] = useState<string[]>([]);
+  const open = suggestions.filter(
+    (s) => s.status === "open" && !decided.includes(s.id),
+  );
   const shown = places.filter(([id]) => open.some((s) => s.id === id));
 
-  // Open suggestions without a mark get one by their anchor after the text opens and after every
-  // change of the list (design of story-data-web, decision 5); the rest have no place.
+  // Open suggestions by a line without a mark get one by their anchor after the text opens and
+  // after every change of the list (design of story-data-web, decision 5); the rest have no place.
+  // Suggestions of paragraphs have no mark: the editor finds their place by the anchor itself
+  // (design of coauthor-typed-suggestions, decision 5).
   const anchors = JSON.stringify(
-    open.map((s) => ({ id: s.id, sceneUid: s.sceneUid, quote: s.quote })),
+    open.flatMap((s) =>
+      s.text === null || s.sceneUid === null || s.quote === null
+        ? []
+        : [{ id: s.id, sceneUid: s.sceneUid, quote: s.quote }],
+    ),
   );
   useEffect(() => {
     if (!placeMarks) return;
@@ -103,11 +113,31 @@ export function useEditorSuggestions(
       return;
     }
     setActive(null);
+    setDecided((ids) => [...ids, s.id]);
     record(s, accept);
   }
 
   const editorSuggestions: EditorSuggestions = {
-    open: Object.fromEntries(open.map((s) => [s.id, s.text])),
+    open: Object.fromEntries(
+      open.flatMap((s) => (s.text === null ? [] : [[s.id, s.text]])),
+    ),
+    blocks: Object.fromEntries(
+      open.flatMap((s): [string, BlockSuggestion][] =>
+        s.paragraphs === null
+          ? []
+          : [
+              [
+                s.id,
+                {
+                  place: s.place,
+                  sceneUid: s.sceneUid,
+                  quote: s.quote,
+                  paragraphs: s.paragraphs,
+                },
+              ],
+            ],
+      ),
+    ),
     active,
     onOpen: (id) => show(id, false),
     onPlaces: setPlaces,

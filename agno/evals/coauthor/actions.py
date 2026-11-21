@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Literal, get_args, get_origin
 
 from core.fields import FIELDS, KINDS_WITH_ROLE, SCRIPT_NAME, Role
+from core.tables import SUGGESTION_PLACES
+from core.texts import ELEMENT_NAMES
 from evals.coauthor.demo_set import demo_stories
 from evals.coauthor.records import CHANGING, Call, Usage
 from evals.coauthor.user import PLACES
@@ -21,10 +23,11 @@ NO_ACTION = "none"
 # Changing tools that need a file attached to the message: the measurement sends text only, so the set does not ask
 # for them (spec «Набор просьб замера действий»); called anyway, they are a change nobody asked for.
 NEEDS_FILE = frozenset({"save_chat_file_to_notes"})
-# The tools the set asks for: every changing tool but suggest_edit, which changes the screenplay only through the
-# author's decision and is measured by the quality measurement, and the tools of NEEDS_FILE. A suggestion here is a
+# The tools the set asks for: every changing tool but those of NEEDS_FILE. A suggestion of an edit is checked by its
+# place and the types of its paragraphs (design of coauthor-typed-suggestions, decision 9); one nobody asked for is a
 # change nobody asked for.
-ACTION_TOOLS = frozenset(CHANGING - {"suggest_edit"} - NEEDS_FILE)
+ACTION_TOOLS = frozenset(CHANGING - NEEDS_FILE)
+SUGGEST = "suggest_edit"
 DOCUMENT_TOOLS = ("create_story_document", "update_story_document")
 TARGET_TOOLS = ("update_story_document", "update_story_note")
 CREATED_KINDS = ("character", "location", "world")
@@ -35,7 +38,21 @@ MAX_ATTEMPTS = 2
 # The profile fell into the description: expected fields are empty and the summary is longer than this (design,
 # decision 5; the threshold is tuned by the first run).
 SUMMARY_DUMP = 300
-_KEYS = {"id", "place", "message", "expect", "kind", "target", "fields", "role", "name", "max_words"}
+_KEYS = {
+    "id",
+    "place",
+    "message",
+    "expect",
+    "kind",
+    "target",
+    "fields",
+    "role",
+    "name",
+    "max_words",
+    "suggest_place",
+    "types",
+    "empty_text",
+}
 # The requests whose written text may have a limit of words: the expected fields of the document, the text of the note.
 LIMITED_TOOLS = ("update_story_document", "create_story_note")
 
@@ -56,6 +73,9 @@ class Request:
     role: str | None = None
     name: str | None = None
     max_words: int | None = None  # the written text is not longer than this (spec «Проверки замера действий»)
+    suggest_places: tuple[str, ...] = ()  # the places a suggestion may have; one is enough
+    types: tuple[str, ...] = ()  # paragraph types the suggestion must have in this order, others between allowed
+    empty_text: bool = False  # the screenplay of the request's draft is the text of a new story
 
     @property
     def section(self) -> str:
@@ -117,6 +137,8 @@ def parse_request(row: Any, cards: dict[str, dict[str, str]], notes: dict[str, f
         allowed |= {"role", "name"}
     if expect in LIMITED_TOOLS:
         allowed.add("max_words")
+    if expect == SUGGEST:
+        allowed |= {"suggest_place", "types", "empty_text"}
     extra = set(row) - allowed
     if extra:
         raise ActionSetError(f"{request_id}: {', '.join(sorted(extra))} do not belong to a request for {expect}")
@@ -146,7 +168,41 @@ def parse_request(row: Any, cards: dict[str, dict[str, str]], notes: dict[str, f
             raise ActionSetError(f"{request_id}: max_words must be a positive whole number")
         if expect == "update_story_document" and not groups:
             raise ActionSetError(f"{request_id}: max_words limits the expected fields, and the request names none")
-    return Request(request_id, place, message, expect, kind, target, tuple(groups), role, new_name, max_words)
+    places: tuple[str, ...] = ()
+    types: tuple[str, ...] = ()
+    empty_text = False
+    if expect == SUGGEST:
+        places = tuple(_string(f"{request_id}: suggest_place", row.get("suggest_place")).split("|"))
+        for name in places:
+            if name not in SUGGESTION_PLACES:
+                raise ActionSetError(
+                    f"{request_id}: suggest_place {name!r} is not one of {', '.join(SUGGESTION_PLACES)}"
+                )
+        raw_types = row.get("types", [])
+        if not isinstance(raw_types, list):
+            raise ActionSetError(f"{request_id}: types must be a list of paragraph types")
+        for item in raw_types:
+            if item not in ELEMENT_NAMES:
+                raise ActionSetError(f"{request_id}: paragraph type {item!r} is not a type of the editor")
+        types = tuple(raw_types)
+        empty_text = row.get("empty_text", False)
+        if not isinstance(empty_text, bool):
+            raise ActionSetError(f"{request_id}: empty_text must be true or false")
+    return Request(
+        request_id,
+        place,
+        message,
+        expect,
+        kind,
+        target,
+        tuple(groups),
+        role,
+        new_name,
+        max_words,
+        places,
+        types,
+        empty_text,
+    )
 
 
 def parse_set(rows: Any) -> list[Request]:
@@ -191,6 +247,14 @@ class Card:
 
 
 @dataclass(frozen=True)
+class Suggested:
+    """A suggestion the request made: its place and the types of its paragraphs (none for a line)."""
+
+    place: str
+    types: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Changes:
     """What the request changed, read from the core before and after the run."""
 
@@ -201,6 +265,7 @@ class Changes:
     notes_updated: tuple[str, ...] = ()  # titles before the run
     comments: int = 0
     suggestions: int = 0
+    suggested: tuple[Suggested, ...] = ()  # the new suggestions, in the order of their creation
     open_draft: tuple[str, ...] = ()  # documents of the story's open draft that changed: never expected
 
 
@@ -228,6 +293,7 @@ class Verdict:
     summary_dump: bool
     extra: tuple[str, ...]  # changes nobody asked for
     too_long: tuple[str, ...]  # written texts over the request's max_words: "what: N слов, предел M"
+    placement: tuple[str, ...] = ()  # a suggestion not at an expected place or without the expected types
 
     @property
     def fields_expected(self) -> bool:
@@ -242,6 +308,7 @@ class Verdict:
             and not self.missing
             and not self.extra
             and not self.too_long
+            and not self.placement
         )
 
 
@@ -270,7 +337,8 @@ def _extra(request: Request, changes: Changes) -> list[str]:
     comments = changes.comments - (1 if request.expect == "comment_on_screenplay" else 0)
     if comments > 0:
         extra.append(f"лишних комментариев: {comments}")
-    if changes.suggestions:
+    suggestions = changes.suggestions - (1 if request.expect == SUGGEST else 0)
+    if suggestions > 0:
         extra.append(f"предложений правки: {changes.suggestions}")
     extra += [f"изменён открытый драфт: «{name}»" for name in changes.open_draft]
     return extra
@@ -302,6 +370,28 @@ def _too_long(request: Request, card: Card | None, changes: Changes) -> list[str
     return [f"{what}: {_words(text)} слов, предел {limit}" for what, text in written if _words(text) > limit]
 
 
+def _in_order(expected: tuple[str, ...], found: tuple[str, ...]) -> bool:
+    """The expected types appear in `found` in this order, other types between them allowed."""
+    rest = iter(found)
+    return all(any(kind == wanted for kind in rest) for wanted in expected)
+
+
+def _placement(request: Request, changes: Changes) -> list[str]:
+    """The suggestion of a request for one (spec «Проверки замера действий»): one, at an expected place, the expected
+    types in order."""
+    if request.expect != SUGGEST:
+        return []
+    if len(changes.suggested) != 1:
+        return [f"предложений: {len(changes.suggested)} вместо 1"]
+    (made,) = changes.suggested
+    issues: list[str] = []
+    if made.place not in request.suggest_places:
+        issues.append(f"место {made.place} вместо {'|'.join(request.suggest_places)}")
+    if not _in_order(request.types, made.types):
+        issues.append(f"типы: ожидались {', '.join(request.types)}; получены {', '.join(made.types) or 'строка'}")
+    return issues
+
+
 def check(request: Request, run: ActionRun) -> Verdict:
     """The checks of one request by code (spec «Проверки замера действий», «Сведения профиля не в описании»)."""
     changing = [call for call in run.calls if call.name in CHANGING]
@@ -326,7 +416,10 @@ def check(request: Request, run: ActionRun) -> Verdict:
     too_long = _too_long(request, card, run.changes)
     if run.outcome == "error":
         action_ok = False
-    return Verdict(request, run, refusals, attempts, action_ok, tuple(missing), dump, tuple(extra), tuple(too_long))
+    placement = tuple(_placement(request, run.changes))
+    return Verdict(
+        request, run, refusals, attempts, action_ok, tuple(missing), dump, tuple(extra), tuple(too_long), placement
+    )
 
 
 @dataclass(frozen=True)
@@ -421,6 +514,8 @@ def _failure(verdict: Verdict) -> list[str]:
         lines.append(f"Сверх просьбы: {'; '.join(verdict.extra)}.")
     if verdict.too_long:
         lines.append(f"Длиннее предела: {'; '.join(verdict.too_long)}.")
+    if verdict.placement:
+        lines.append(f"Предложение: {'; '.join(verdict.placement)}.")
     lines += ["", f"**Соавтор:** {run.answer}", ""]
     return lines
 

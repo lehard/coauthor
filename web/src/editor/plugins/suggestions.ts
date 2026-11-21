@@ -7,26 +7,37 @@ import {
 } from "prosemirror-state";
 import { ReplaceAroundStep, ReplaceStep } from "prosemirror-transform";
 
+import { findBlockPlace, type BlockSuggestion } from "../anchors.ts";
+import { isElementName } from "../elements.ts";
 import { schema } from "../schema/index.ts";
 
 // Co-author suggestions (design of coauthor-suggestions, decisions 1–4): the mark `suggestion`
-// covers the text a suggestion would replace; the suggested text, the reason and the status
-// live in the app's data. No DOM here: check:editor runs these in Node.
+// covers the text a suggestion by a line would replace; the suggested text, the reason and the
+// status live in the app's data. A suggestion of typed paragraphs has no mark: its place is found
+// by its anchor after every change (design of coauthor-typed-suggestions, decisions 5–6). No DOM
+// here: check:editor runs these in Node.
 
 export type SuggestionRange = { from: number; to: number };
 
 export type SuggestionsState = {
-  /** Open suggestions shown in the text: id → suggested text. */
+  /** Open suggestions by a line shown in the text: id → suggested text. */
   open: ReadonlyMap<string, string>;
+  /** Open suggestions of paragraphs: id → their place and paragraphs. */
+  blocks: ReadonlyMap<string, BlockSuggestion>;
+  /** Where each suggestion of `blocks` is now: the paragraphs it replaces, or an empty range where it inserts. */
+  places: ReadonlyMap<string, SuggestionRange>;
   /** The suggestion whose card is open. */
   active: string | null;
-  /** Ids of every suggestion place in the text, in text order, each once. */
+  /** Ids of every suggestion mark in the text, in text order, each once. */
   order: string[];
 };
 
 export type SuggestionsMeta = {
   open?: Record<string, string>;
+  blocks?: Record<string, BlockSuggestion>;
   active?: string | null;
+  /** A suggestion of paragraphs is decided: it leaves the text before the list of the app knows. */
+  drop?: string;
 };
 
 export const suggestionsKey = new PluginKey<SuggestionsState>("suggestions");
@@ -110,6 +121,69 @@ export function acceptSuggestion(id: string, text: string): Command {
   };
 }
 
+function blockPlaces(
+  doc: Node,
+  blocks: ReadonlyMap<string, BlockSuggestion>,
+): Map<string, SuggestionRange> {
+  const places = new Map<string, SuggestionRange>();
+  for (const [id, block] of blocks) {
+    const place = findBlockPlace(doc, block);
+    if (place !== null) places.set(id, place);
+  }
+  return places;
+}
+
+/** Insertions that replace a text without a single character: the empty heading of a new story goes. */
+const FILL_EMPTY: readonly string[] = [
+  "script_start",
+  "script_end",
+  "scene_end",
+];
+
+/**
+ * «Принять» of a suggestion of paragraphs: its paragraphs with their types replace or are inserted
+ * at its place in one edit, which one undo takes back; new scene headings get their uid from the
+ * plugin sceneUids in the same step. In a text without a single character an insertion at the
+ * start or the end of the screenplay or of a scene replaces the whole text. False when it has no
+ * place.
+ */
+export function acceptBlockSuggestion(id: string): Command {
+  return (state, dispatch) => {
+    const block = suggestions(state).blocks.get(id);
+    const place = suggestions(state).places.get(id);
+    if (block === undefined || place === undefined) return false;
+    if (dispatch) {
+      const nodes = block.paragraphs.map((p) => {
+        if (!isElementName(p.type))
+          throw new Error(`Неизвестный тип абзаца предложения: ${p.type}`);
+        return schema.nodes[p.type].create(null, schema.text(p.text));
+      });
+      const whole =
+        state.doc.textContent === "" && FILL_EMPTY.includes(block.place);
+      const tr = whole
+        ? state.tr.replaceWith(0, state.doc.content.size, nodes)
+        : state.tr.replaceWith(place.from, place.to, nodes);
+      const meta: SuggestionsMeta = { drop: id };
+      dispatch(
+        tr.setMeta(suggestionGuardKey, true).setMeta(suggestionsKey, meta),
+      );
+    }
+    return true;
+  };
+}
+
+/** «Отклонить» of a suggestion of paragraphs: the text and the undo history stay as they are. */
+export function rejectBlockSuggestion(id: string): Command {
+  return (state, dispatch) => {
+    if (!suggestions(state).places.has(id)) return false;
+    const meta: SuggestionsMeta = { drop: id };
+    dispatch?.(
+      state.tr.setMeta(suggestionsKey, meta).setMeta("addToHistory", false),
+    );
+    return true;
+  };
+}
+
 /** Removes the suggestion's mark, outside the undo history; the text stays. */
 export function rejectSuggestion(id: string): Command {
   return (state, dispatch) => {
@@ -141,17 +215,25 @@ export const suggestionsStatePlugin = new Plugin<SuggestionsState>({
   state: {
     init: (_config, state) => ({
       open: new Map(),
+      blocks: new Map(),
+      places: new Map(),
       active: null,
       order: suggestionOrder(state.doc),
     }),
     apply(tr, value) {
       const meta = tr.getMeta(suggestionsKey) as SuggestionsMeta | undefined;
       if (meta === undefined && !tr.docChanged) return value;
+      const blocks = new Map(
+        meta?.blocks === undefined ? value.blocks : Object.entries(meta.blocks),
+      );
+      if (meta?.drop !== undefined) blocks.delete(meta.drop);
       return {
         open:
           meta?.open === undefined
             ? value.open
             : new Map(Object.entries(meta.open)),
+        blocks,
+        places: blockPlaces(tr.doc, blocks),
         active: meta?.active === undefined ? value.active : meta.active,
         order: tr.docChanged ? suggestionOrder(tr.doc) : value.order,
       };

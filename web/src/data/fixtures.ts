@@ -38,8 +38,12 @@ export const FIXTURES = demo as unknown as {
   /** Sample notes have no originals: files need the core. */
   notes: Omit<Note, "file">[];
   comments: FixtureThread[];
-  // Suggestions of the sample are the co-author's: who suggests is given when the store is filled.
-  suggestions: Omit<Suggestion, "authorKind" | "authorName">[];
+  // Suggestions of the sample are the co-author's lines in a paragraph: who suggests and the place are given when the
+  // store is filled.
+  suggestions: Omit<
+    Suggestion,
+    "authorKind" | "authorName" | "place" | "paragraphs"
+  >[];
   drafts: Draft[];
 };
 

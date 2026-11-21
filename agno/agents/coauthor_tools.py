@@ -348,14 +348,64 @@ def read_chat_file(run_context: RunContext, file_id: str) -> str:
     return _answer(work)
 
 
-def suggest_edit(run_context: RunContext, scene_uid: str, quote: str, text: str, why: str) -> str:
-    """Предложить автору правку фрагмента сценария. Текст автора не меняется, пока автор не примет правку.
+# Names of the paragraph types for the model, as the editor shows them (web/src/editor/elements.ts, `label`);
+# tests/test_coauthor_tools.py checks that they name every type of core/texts.py.
+PARAGRAPH_TYPES = {
+    "sceneHeading": "заголовок сцены: ИНТ. или НАТ., место, время суток",
+    "sceneCharacters": "участники сцены",
+    "action": "описание действия",
+    "character": "персонаж: имя того, кто говорит, как оно уже написано в сценарии (заглавными его делает оформление)",
+    "parenthetical": "ремарка перед репликой, без скобок: их добавляет оформление",
+    "dialogue": "реплика",
+    "lyrics": "лирика",
+    "shot": "кадр",
+    "transition": "переход",
+    "unformatted": "простой текст",
+    "inlineNote": "заметка по тексту",
+    "beat": "бит",
+    "sequence": "группа сцен",
+    "act": "акт",
+}
+PLACE_NAMES = {
+    "replace": "вместо цитаты",
+    "after": "после абзаца с цитатой",
+    "scene_end": "в конец сцены",
+    "scene_body": "вместо абзацев сцены после заголовка",
+    "script_start": "в начало сценария",
+    "script_end": "в конец сценария",
+}
+
+
+def suggest_edit(
+    run_context: RunContext,
+    scene_uid: str,
+    quote: str,
+    text: str,
+    why: str,
+    place: str = "replace",
+    paragraphs: list[dict[str, str]] | None = None,
+) -> str:
+    """Предложить автору правку сценария. Текст автора не меняется, пока автор не примет правку.
+
+    Поправить слова внутри одного абзаца — place «replace», цитата и строка `text`: тип абзаца не меняется.
+    Добавить или переписать сценарный текст — абзацы `paragraphs`, каждый отдельным абзацем своего типа,
+    `text` пустой. Места (place):
+    - replace: абзацы заменяют весь абзац с цитатой (нужны scene_uid и quote);
+    - after: вставить после абзаца с цитатой (нужны scene_uid и quote);
+    - scene_end: вставить в конец сцены (нужен scene_uid, quote пустая);
+    - scene_body: заменить все абзацы сцены после заголовка (нужен scene_uid, quote пустая);
+    - script_start, script_end: в начало или конец сценария, в том числе пустого (scene_uid и quote пустые).
+
+    Типы абзацев (type):
+    {types}
 
     Args:
-        scene_uid: uid сцены из read_screenplay.
-        quote: точная цитата из одного абзаца этой сцены, которую заменить (символ в символ).
-        text: предлагаемый текст вместо цитаты; пусто — убрать цитату.
+        scene_uid: uid сцены из read_screenplay; пусто у script_start и script_end.
+        quote: точная цитата из одного абзаца этой сцены (символ в символ); пусто у scene_end, scene_body и script_*.
+        text: строка вместо цитаты у replace без абзацев; пусто — убрать цитату; при абзацах пусто.
         why: коротко, зачем эта правка.
+        place: место предложения, по умолчанию replace.
+        paragraphs: абзацы по порядку, каждый {"type": тип из списка, "text": текст без переноса строки}.
     """
 
     def work() -> Any:
@@ -369,13 +419,25 @@ def suggest_edit(run_context: RunContext, scene_uid: str, quote: str, text: str,
                 text,
                 why,
                 run_context.session_id,
+                place,
+                paragraphs,
             )
+        waits = "Текст сценария изменится, только если автор его примет."
+        if suggestion.paragraphs is None:
+            return f"Предложение {suggestion.id} отправлено автору: «{quote}» → «{text}». {waits}"
         return (
-            f"Предложение {suggestion.id} отправлено автору: «{quote}» → «{text}». "
-            "Текст сценария изменится, только если автор его примет."
+            f"Предложение {suggestion.id} отправлено автору: {len(suggestion.paragraphs)} абз. "
+            f"{PLACE_NAMES[suggestion.place]}. {waits}"
         )
 
     return _answer(work)
+
+
+if suggest_edit.__doc__ is None or "{types}" not in suggest_edit.__doc__:
+    raise RuntimeError("The docstring of suggest_edit has no {types} for the paragraph types")
+suggest_edit.__doc__ = suggest_edit.__doc__.replace(
+    "{types}", "\n".join(f"- {name}: {label}" for name, label in PARAGRAPH_TYPES.items())
+)
 
 
 KIND_NAMES = {"character": "персонаж", "location": "локация", "world": "мир", "script": "сценарий"}

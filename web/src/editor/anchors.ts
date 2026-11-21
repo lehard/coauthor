@@ -11,6 +11,80 @@ import { schema } from "./schema/index.ts";
 
 export type SuggestionAnchor = { id: string; sceneUid: string; quote: string };
 
+/** Where a suggestion of paragraphs goes (openspec/specs/api/review, «Поля места предложения»). */
+export type BlockPlace =
+  | "replace"
+  | "after"
+  | "scene_end"
+  | "scene_body"
+  | "script_start"
+  | "script_end";
+
+/**
+ * A suggestion of typed paragraphs (design of coauthor-typed-suggestions, decision 5): no mark in
+ * the text, its place is found by the anchor. `type` is checked when the paragraphs are made.
+ */
+export type BlockSuggestion = {
+  place: BlockPlace;
+  sceneUid: string | null;
+  quote: string | null;
+  paragraphs: { type: string; text: string }[];
+};
+
+/**
+ * The place of a suggestion of paragraphs in `doc` (positions between top-level paragraphs): the
+ * paragraphs it replaces, or an empty range where it inserts; null without its scene or quote.
+ * A scene is its heading and the paragraphs up to the next heading, group or act, as for
+ * `findAnchor`; the quote is the first match inside one paragraph of the scene.
+ */
+export function findBlockPlace(
+  doc: Node,
+  block: BlockSuggestion,
+): { from: number; to: number } | null {
+  if (block.place === "script_start") return { from: 0, to: 0 };
+  const end = doc.content.size;
+  if (block.place === "script_end") return { from: end, to: end };
+  let inScene = false;
+  let heading: { from: number; to: number } | null = null;
+  let sceneEnd: number | null = null;
+  let paragraph: { from: number; to: number } | null = null;
+  doc.forEach((node, offset) => {
+    const type = node.type.name;
+    const closes =
+      type === "sceneHeading" || type === "act" || type === "sequence";
+    if (closes && inScene && sceneEnd === null) sceneEnd = offset;
+    if (type === "sceneHeading") {
+      inScene = node.attrs.uid === block.sceneUid;
+      if (inScene && heading === null)
+        heading = { from: offset, to: offset + node.nodeSize };
+    } else if (closes) inScene = false;
+    if (
+      !inScene ||
+      paragraph !== null ||
+      block.quote === null ||
+      block.quote === "" ||
+      !node.isTextblock ||
+      !node.textContent.includes(block.quote)
+    )
+      return;
+    paragraph = { from: offset, to: offset + node.nodeSize };
+  });
+  const found = heading as { from: number; to: number } | null;
+  if (found === null) return null;
+  const last = (sceneEnd as number | null) ?? end;
+  const hit = paragraph as { from: number; to: number } | null;
+  switch (block.place) {
+    case "replace":
+      return hit;
+    case "after":
+      return hit === null ? null : { from: hit.to, to: hit.to };
+    case "scene_end":
+      return { from: last, to: last };
+    case "scene_body":
+      return { from: found.to, to: last };
+  }
+}
+
 /**
  * The first match of `quote` inside one paragraph of the scene with `sceneUid` (its heading and
  * the text up to the next heading, group or act); null without the scene or the words.

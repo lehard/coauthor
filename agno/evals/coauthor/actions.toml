@@ -9,7 +9,10 @@
 # - `fields`: profile fields the request names directly; "a|b" means one of them is enough;
 # - for update_story_document: optional `role` and `name` the card must have after the request; the target may be
 #   «Сценарий», the screenplay of the draft, with the fields `logline` and `synopsis`;
-# - for update_story_document and create_story_note: optional `max_words`, the limit of words of the written text.
+# - for update_story_document and create_story_note: optional `max_words`, the limit of words of the written text;
+# - for suggest_edit: `suggest_place`, the place of the suggestion ("a|b" means one of them is enough), optional
+#   `types`, paragraph types the suggestion must have in this order (others between them allowed), and optional
+#   `empty_text = true`: the screenplay of the request's draft is the empty text of a new story.
 # The set is checked against core/fields.py and the demo stories before any model call (evals/coauthor/actions.py).
 
 # --- Персонажи ---
@@ -577,3 +580,61 @@ id = "logline-variants-ask"
 place = "tihaya-voda"
 message = "Предложи три варианта логлайна для этой истории: герой, его цель, главное препятствие и ставки, до 35 слов каждый. Опирайся на сценарий и документы драфта. Ничего не записывай, пока я не выберу."
 expect = "none"
+
+# --- Предложения правки сценария (openspec/changes/coauthor-typed-suggestions, design, decision 9) ---
+
+[[request]]
+id = "suggest-rewrite-garage"
+place = "tihaya-voda"
+message = "Перепиши сцену в гараже дяди Коли целиком: пусть Коля впервые проговорится, что в то утро видел Мишу на мостках не одного. Только диалог, без длинных описаний."
+expect = "suggest_edit"
+suggest_place = "scene_body"
+types = ["character", "dialogue", "character", "dialogue"]
+
+[[request]]
+id = "suggest-scene-after-pier"
+place = "tihaya-voda"
+message = "Добавь после сцены на пристани посёлка новую сцену: Аня идёт к дому, Вера встречает её на крыльце, они неловко обнимаются, и Вера говорит: «Ты похудела»."
+expect = "suggest_edit"
+suggest_place = "after|scene_end"
+types = ["sceneHeading", "action", "character", "dialogue"]
+
+[[request]]
+id = "suggest-kolya-reply"
+place = "tihaya-voda"
+message = "Допиши после слов Ани «Двадцать лет прошло, дядь Коль.» ответ дяди Коли: он хрипло говорит «А вода всё та же»."
+expect = "suggest_edit"
+suggest_place = "after"
+types = ["character", "dialogue"]
+
+[[request]]
+id = "suggest-efim-reply"
+place = "posledniy-parom"
+message = "В сцене на пароме после «С собой поговоришь.» пусть Ефим ответит: «С собой я сорок лет говорю, надоело»."
+expect = "suggest_edit"
+suggest_place = "after"
+types = ["character", "dialogue"]
+
+[[request]]
+id = "suggest-start-empty"
+place = "posledniy-parom"
+message = "Начни сценарий с этой сцены: утро, переправа в тумане, паромщик Павел отвязывает паром и говорит сам себе: «Ну, давай, старый»."
+expect = "suggest_edit"
+suggest_place = "script_start|script_end|scene_end"
+types = ["sceneHeading", "action", "character", "dialogue"]
+empty_text = true
+
+[[request]]
+id = "suggest-final-scene"
+place = "posledniy-parom"
+message = "Мы обсуждали финал: Павел утром приходит к закрытой переправе, а на сходнях его ждёт Ефим с корзиной яблок. Ефим говорит: «Ну что, перевезёшь?» Павел молча отвязывает паром. Добавь эту сцену в конец сценария."
+expect = "suggest_edit"
+suggest_place = "script_end|scene_end"
+types = ["sceneHeading", "action", "character", "dialogue", "action"]
+
+[[request]]
+id = "suggest-word-fix"
+place = "tihaya-voda"
+message = "В реплике дяди Коли на пристани поправь «Выросла.» на «Выросла-то как.»"
+expect = "suggest_edit"
+suggest_place = "replace"
