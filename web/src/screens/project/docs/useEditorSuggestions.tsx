@@ -26,8 +26,11 @@ export function useEditorSuggestions(
   editor: RefObject<ScreenplayEditorHandle | null>,
   /** A suggestion card opens: another card of the editor closes. */
   onOpened: () => void,
-  /** «Обсудить в чате»: shows the chat where it is hidden; null without a chat (a reader). */
-  openChat: (() => void) | null,
+  /**
+   * «Обсудить в чате»: `open` shows the chat where it is hidden, `clear` takes its fragment away; null without a
+   * chat (a reader).
+   */
+  chat: { open: () => void; clear: () => void } | null,
   /** A locked draft or a role without the right to edit: no decision. */
   readOnly: boolean,
   /** Anchored suggestions get their marks: not in a locked draft; a reviewer's window does not save them. */
@@ -161,12 +164,20 @@ export function useEditorSuggestions(
           readOnly={readOnly}
           onClose={close}
           onDiscuss={
-            openChat === null
+            chat === null
               ? undefined
               : () => {
                   setActive(null);
                   view().selectSuggestion(current.id);
-                  openChat();
+                  // Nothing to select at the start or the end of the screenplay: the fragment of the chat
+                  // left from before goes, so it is not sent with the question (design of
+                  // chat-discuss-script-edge, decision 3).
+                  if (
+                    current.place === "script_start" ||
+                    current.place === "script_end"
+                  )
+                    chat.clear();
+                  chat.open();
                 }
           }
           onDecide={(accept) => decide(current, accept)}

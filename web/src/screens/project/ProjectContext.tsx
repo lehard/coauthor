@@ -68,6 +68,11 @@ export type ProjectData = {
   /** Shows the chat where it is hidden (narrow screens); on wide screens it is always shown. */
   openChat: () => void;
   /**
+   * Takes the fragment for the chat away, as «Убрать» of its chip does («Обсудить в чате» of an insertion at the
+   * start or the end of the screenplay: openspec/specs/web/workspace, «Карточка предложения абзацами»).
+   */
+  clearChatSelection: () => void;
+  /**
    * Opens the chat and, by `mode`, sends `text` to the co-author in the current conversation as if
    * the author typed it (web/workspace, «Проверки над выделением») or puts it into the field
    * («Задача «Под заявку»»). Throws while `coauthorBusy`: the screens do not offer it then.
