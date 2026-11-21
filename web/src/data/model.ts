@@ -2,6 +2,7 @@
 // (draftId) and soft delete (deletedAt). The `api` source translates the core records into these
 // (design of story-data-web, decision 1); revisions stay inside the provider.
 import type { ScreenplayDoc } from "@/editor/document.ts";
+import type { ElementName } from "@/editor/elements.ts";
 
 export type Role = "main" | "secondary" | "episodic";
 export type EntityKind = "char" | "loc" | "world";
@@ -220,25 +221,42 @@ export type NewThread = {
 /** A new reply of resource `comment-replies`; `meta.threadId` names its thread. */
 export type NewReply = { text: string };
 
+/** Where a suggestion goes (openspec/specs/api/review, «Поля места предложения»). */
+export type SuggestionPlace =
+  | "replace"
+  | "after"
+  | "scene_end"
+  | "scene_body"
+  | "script_start"
+  | "script_end";
+
+/** A suggested paragraph: one of the paragraph types of the editor and its text. */
+export type SuggestedParagraph = { type: ElementName; text: string };
+
 /**
- * A co-author suggestion (coauthor-suggestions, decision 5). Its id is the id of the
- * `suggestion` mark on the text it would replace; the text changes only on «Принять».
+ * A suggestion of the co-author or a participant (coauthor-suggestions, decision 5; coauthor-typed-suggestions,
+ * decisions 5–7). A line `text` replaces a quote inside one paragraph and keeps its type: its id is the id of the
+ * `suggestion` mark on the text it would replace. Typed `paragraphs` have no mark: the text screen finds their
+ * place by the anchor. The text changes only on «Принять».
  */
 export type Suggestion = {
   id: string;
   draftId: string;
+  place: SuggestionPlace;
   /**
-   * Anchor of the co-author: the scene and the exact words to replace. The text screen puts the
-   * mark on the first match inside one paragraph of that scene (design of story-data-web, decision 5).
+   * Anchor: the scene and the exact words in one of its paragraphs; null where the place has none (the start and
+   * the end of the screenplay have no scene, the end and the body of a scene no words).
    */
-  sceneUid: string;
-  quote: string;
+  sceneUid: string | null;
+  quote: string | null;
   /** ISO time. */
   at: string;
   /** Why the co-author suggests it. */
   why: string;
-  /** The suggested text. */
-  text: string;
+  /** The suggested line, or null for a suggestion of paragraphs. */
+  text: string | null;
+  /** The suggested paragraphs with their types, or null for a line. */
+  paragraphs: SuggestedParagraph[] | null;
   status: "open" | "accepted" | "rejected";
   /** ISO time of the author's decision. */
   decidedAt: string | null;
@@ -247,11 +265,15 @@ export type Suggestion = {
   authorName: string;
 };
 
-/** A suggestion of a participant, anchored like the co-author's; `id` is the id of its future mark. */
-export type NewSuggestion = Pick<
-  Suggestion,
-  "id" | "draftId" | "sceneUid" | "quote" | "text" | "why"
->;
+/** A suggestion of a participant: a line in one paragraph, anchored like the co-author's; `id` is the id of its future mark. */
+export type NewSuggestion = {
+  id: string;
+  draftId: string;
+  sceneUid: string;
+  quote: string;
+  text: string;
+  why: string;
+};
 
 /**
  * A draft of a story: a parallel version that owns its screenplay, cards, review and

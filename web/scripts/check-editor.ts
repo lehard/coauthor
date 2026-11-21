@@ -86,10 +86,13 @@ import {
   removeComment,
 } from "../src/editor/plugins/comments.ts";
 import {
+  acceptBlockSuggestion,
   acceptSuggestion,
+  rejectBlockSuggestion,
   rejectSuggestion,
   setSuggestions,
   suggestionRanges,
+  suggestionsKey,
   suggestionsStatePlugin,
 } from "../src/editor/plugins/suggestions.ts";
 import {
@@ -103,7 +106,12 @@ import { SCENE_HEADING_START } from "../src/editor/plugins/inputRules.ts";
 import { parenthesisPlugin } from "../src/editor/plugins/parenthesis.ts";
 import { capitalsPlugin } from "../src/editor/plugins/capitals.ts";
 import { sceneUidsPlugin } from "../src/editor/plugins/sceneUids.ts";
-import { findAnchor, placeAnchors } from "../src/editor/anchors.ts";
+import {
+  findAnchor,
+  findBlockPlace,
+  placeAnchors,
+  type BlockSuggestion,
+} from "../src/editor/anchors.ts";
 import { schema } from "../src/editor/schema/index.ts";
 import { foldText } from "../src/editor/fold.ts";
 
@@ -811,6 +819,184 @@ try {
     fail("«Отклонить» изменило текст или оставило метку");
   if (undoDepth(rejected) !== depth)
     fail("«Отклонить» попало в историю отмены");
+}
+
+// 10a. Suggestions of typed paragraphs: placed by the anchor, accepted as one edit with their
+// types, new headings get a uid, a text without a character is replaced (coauthor-typed-suggestions).
+{
+  const heading = (uid: string, text: string) => ({
+    type: "sceneHeading",
+    attrs: { uid },
+    content: [{ type: "text", text }],
+  });
+  const p = (type: string, text: string) => ({
+    type,
+    content: [{ type: "text", text }],
+  });
+  const doc = toNode({
+    type: "doc",
+    content: [
+      heading("s1", "ИНТ. КУХНЯ — НОЧЬ"),
+      p("action", "Вера молчит."),
+      p("action", "Чайник свистит."),
+      heading("s2", "НАТ. ОЗЕРО — ДЕНЬ"),
+      p("action", "Вода."),
+    ],
+  } as ScreenplayDoc);
+  const lines = [
+    { type: "character", text: "ДЯДЯ КОЛЯ" },
+    { type: "dialogue", text: "Пойдём домой." },
+  ];
+  const block = (
+    place: BlockSuggestion["place"],
+    sceneUid: string | null = "s1",
+    quote: string | null = null,
+  ): BlockSuggestion => ({ place, sceneUid, quote, paragraphs: lines });
+  const sizes: number[] = [];
+  doc.forEach((n) => sizes.push(n.nodeSize));
+  const at = (i: number) => sizes.slice(0, i).reduce((a, b) => a + b, 0);
+  const expect: [
+    string,
+    BlockSuggestion,
+    { from: number; to: number } | null,
+  ][] = [
+    ["replace", block("replace", "s1", "молчит"), { from: at(1), to: at(2) }],
+    ["after", block("after", "s1", "молчит"), { from: at(2), to: at(2) }],
+    ["scene_end", block("scene_end"), { from: at(3), to: at(3) }],
+    ["scene_body", block("scene_body"), { from: at(1), to: at(3) }],
+    ["script_start", block("script_start", null), { from: 0, to: 0 }],
+    ["script_end", block("script_end", null), { from: at(5), to: at(5) }],
+    [
+      "scene_end последней сцены",
+      block("scene_end", "s2"),
+      { from: at(5), to: at(5) },
+    ],
+    ["нет сцены", block("scene_end", "s9"), null],
+    ["нет цитаты", block("after", "s1", "Вода холодная"), null],
+    ["цитата другой сцены", block("after", "s1", "Вода."), null],
+  ];
+  for (const [name, b, place] of expect)
+    if (JSON.stringify(findBlockPlace(doc, b)) !== JSON.stringify(place))
+      fail(
+        `место предложения абзацами «${name}»: ${JSON.stringify(findBlockPlace(doc, b))}`,
+      );
+
+  const types = (st: EditorState) =>
+    paragraphs(toJSON(st.doc)).map((x) => `${x.type}:${x.text}`);
+  const start = (d: ProseNode, blocks: Record<string, BlockSuggestion>) =>
+    run(
+      setSuggestions({ open: {}, blocks }),
+      EditorState.create({
+        doc: d,
+        plugins: [history(), sceneUidsPlugin, suggestionsStatePlugin],
+      }),
+    );
+
+  let s = start(doc, { b1: block("after", "s1", "молчит") });
+  const before = types(s);
+  s = run(
+    setSuggestions({
+      open: {},
+      blocks: { b1: block("after", "s1", "молчит") },
+    }),
+    s,
+  );
+  const moved = s.apply(
+    s.tr.insert(at(4), schema.nodes.action.create(null, schema.text("Выше."))),
+  );
+  if (suggestionsKey.getState(moved)?.places.get("b1")?.from !== at(2))
+    fail("место вставки не осталось после абзаца с цитатой при правке ниже");
+  const above = s.apply(
+    s.tr.insert(at(1), schema.nodes.action.create(null, schema.text("Свет."))),
+  );
+  if (
+    suggestionsKey.getState(above)?.places.get("b1")?.from !==
+    at(2) + above.doc.child(1).nodeSize
+  )
+    fail("место вставки не сдвинулось за правкой выше");
+  const accepted = run(acceptBlockSuggestion("b1"), s);
+  const want = [
+    "sceneHeading:ИНТ. КУХНЯ — НОЧЬ",
+    "action:Вера молчит.",
+    "character:ДЯДЯ КОЛЯ",
+    "dialogue:Пойдём домой.",
+    "action:Чайник свистит.",
+  ];
+  if (JSON.stringify(types(accepted).slice(0, 5)) !== JSON.stringify(want))
+    fail(`«Принять» вставки после абзаца: ${types(accepted).join(" | ")}`);
+  if (suggestionsKey.getState(accepted)?.places.has("b1"))
+    fail("после «Принять» блок предложения остался");
+  if (JSON.stringify(types(run(undo, accepted))) !== JSON.stringify(before))
+    fail("одно ⌘Z не убрало все принятые абзацы");
+
+  const scene = [
+    { type: "sceneHeading", text: "НАТ. ПРИСТАНЬ — ВЕЧЕР" },
+    ...lines,
+  ];
+  const ended = run(
+    acceptBlockSuggestion("b2"),
+    start(doc, { b2: { ...block("script_end", null), paragraphs: scene } }),
+  );
+  const uids: string[] = [];
+  ended.doc.forEach((n) => {
+    if (n.type.name === "sceneHeading") uids.push(n.attrs.uid as string);
+  });
+  if (uids.length !== 3 || uids[2] === "" || new Set(uids).size !== 3)
+    fail(`новый заголовок сцены без своего uid: ${uids.join(", ")}`);
+  if (undoDepth(ended) !== 1)
+    fail(
+      `принятие сцены заняло ${undoDepth(ended)} шагов отмены вместо одного`,
+    );
+
+  const body = run(
+    acceptBlockSuggestion("b3"),
+    start(doc, { b3: block("scene_body") }),
+  );
+  if (
+    types(body).slice(0, 4).join(" | ") !==
+    "sceneHeading:ИНТ. КУХНЯ — НОЧЬ | character:ДЯДЯ КОЛЯ | dialogue:Пойдём домой. | sceneHeading:НАТ. ОЗЕРО — ДЕНЬ"
+  )
+    fail(`«Принять» scene_body: ${types(body).join(" | ")}`);
+
+  const swap = run(
+    acceptBlockSuggestion("b4"),
+    start(doc, { b4: block("replace", "s1", "Чайник") }),
+  );
+  if (
+    types(swap).slice(1, 5).join(" | ") !==
+    "action:Вера молчит. | character:ДЯДЯ КОЛЯ | dialogue:Пойдём домой. | sceneHeading:НАТ. ОЗЕРО — ДЕНЬ"
+  )
+    fail(`«Принять» replace абзацами: ${types(swap).join(" | ")}`);
+
+  const empty = toNode({
+    type: "doc",
+    content: [{ type: "sceneHeading", attrs: { uid: "s0" } }],
+  } as ScreenplayDoc);
+  for (const where of ["script_start", "script_end", "scene_end"] as const) {
+    const filled = run(
+      acceptBlockSuggestion("b5"),
+      start(empty, {
+        b5: {
+          ...block(where, where === "scene_end" ? "s0" : null),
+          paragraphs: scene,
+        },
+      }),
+    );
+    if (
+      types(filled).join(" | ") !==
+      "sceneHeading:НАТ. ПРИСТАНЬ — ВЕЧЕР | character:ДЯДЯ КОЛЯ | dialogue:Пойдём домой."
+    )
+      fail(`«Принять» ${where} в пустом тексте: ${types(filled).join(" | ")}`);
+  }
+
+  const kept = start(doc, { b6: block("after", "s1", "молчит") });
+  const rejected = run(rejectBlockSuggestion("b6"), kept);
+  if (rejected.doc !== kept.doc || undoDepth(rejected) !== undoDepth(kept))
+    fail("«Отклонить» предложения абзацами изменило текст или историю отмены");
+  if (suggestionsKey.getState(rejected)?.places.has("b6"))
+    fail("после «Отклонить» блок предложения остался");
+  if (docToFountain(kept.doc).includes("Пойдём домой."))
+    fail("экспорт до решения содержит предложенные абзацы");
 }
 
 // 11. Drafts: a copy without comment and suggestion marks.

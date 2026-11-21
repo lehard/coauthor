@@ -56,6 +56,21 @@ def _undo_coauthor_actions(connection: Connection) -> None:
     )
 
 
+def _undo_suggestion_paragraphs(connection: Connection) -> None:
+    """Undo 0020 before a test rewinds the schema to an older revision."""
+    connection.execute(text("DELETE FROM authorled.suggestions WHERE place <> 'replace' OR paragraphs IS NOT NULL"))
+    connection.execute(
+        text(
+            "ALTER TABLE authorled.suggestions DROP CONSTRAINT ck_suggestions_place_known, "
+            "DROP CONSTRAINT ck_suggestions_scene_of_place, DROP CONSTRAINT ck_suggestions_quote_of_place, "
+            "DROP CONSTRAINT ck_suggestions_text_or_paragraphs, DROP CONSTRAINT ck_suggestions_text_of_replace, "
+            "DROP CONSTRAINT ck_suggestions_paragraphs_list, DROP COLUMN place, DROP COLUMN paragraphs, "
+            "ALTER COLUMN scene_uid SET NOT NULL, ALTER COLUMN quote SET NOT NULL, ALTER COLUMN text SET NOT NULL, "
+            "ADD CONSTRAINT ck_suggestions_ck_suggestions_quote_not_empty CHECK (quote <> '')"
+        )
+    )
+
+
 def _undo_story_sharing(connection: Connection) -> None:
     """Undo 0019 before a test rewinds the schema to an older revision."""
     connection.execute(
@@ -151,6 +166,7 @@ def _drop_subscriptions(connection: Connection) -> None:
     The tables of 0009 live in schema billing after b0001_from_core, so the billing chain is rewound to its base too;
     `_upgrade` brings both chains back to head.
     """
+    _undo_suggestion_paragraphs(connection)
     _undo_story_sharing(connection)
     _undo_sources(connection)
     _undo_drop_note_research(connection)
@@ -447,6 +463,7 @@ def test_coauthor_actions_migration_keeps_settings_and_comments(
             .returning(users.c.id)
         ).scalar_one()
         story, _, script = create_project(connection, owner, "Маяк")
+        _undo_suggestion_paragraphs(connection)
         _undo_story_sharing(connection)
         _undo_sources(connection)
         _undo_drop_note_research(connection)
@@ -506,6 +523,7 @@ def test_writing_goals_migration_leaves_goals_empty(
         ).scalar_one()
         connection.execute(insert(user_settings).values(user_id=owner, theme="dark"))
         story, _, _ = create_project(connection, owner, "Маяк")
+        _undo_suggestion_paragraphs(connection)
         _undo_story_sharing(connection)
         _undo_sources(connection)
         _undo_drop_note_research(connection)
@@ -603,6 +621,7 @@ def test_cover_colors_migration_colours_stories_in_turn(
     """Applied from 0013: each author's stories take the colours in the order of creation, from blue."""
     subjects = [f"test-{uuid.uuid4()}" for _ in range(2)]
     with engine.begin() as connection:
+        _undo_suggestion_paragraphs(connection)
         _undo_story_sharing(connection)
         _undo_sources(connection)
         _undo_drop_note_research(connection)
@@ -661,6 +680,7 @@ def test_note_files_migration_keeps_notes_and_files(
     """Applied from 0014 on a database with a note and a chat file: notes get no original, files stay."""
     subject = f"test-{uuid.uuid4()}"
     with engine.begin() as connection:
+        _undo_suggestion_paragraphs(connection)
         _undo_story_sharing(connection)
         _undo_sources(connection)
         _undo_drop_note_research(connection)
@@ -709,6 +729,7 @@ def test_drop_note_research_migration_keeps_notes(
     """Applied from 0016 on a database with a research note: the column goes, the note stays."""
     subject = f"test-{uuid.uuid4()}"
     with engine.begin() as connection:
+        _undo_suggestion_paragraphs(connection)
         _undo_story_sharing(connection)
         _undo_sources(connection)
         _undo_drop_note_research(connection)
@@ -744,6 +765,7 @@ def test_story_sharing_migration_gives_suggestions_their_author(
     """Applied from 0018 on a database with a suggestion of the co-author: it becomes the co-author's."""
     subject = f"test-{uuid.uuid4()}"
     with engine.begin() as connection:
+        _undo_suggestion_paragraphs(connection)
         _undo_story_sharing(connection)
         connection.execute(text("UPDATE authorled.alembic_version SET version_num = '0018_sources'"))
         owner = connection.execute(
@@ -766,6 +788,39 @@ def test_story_sharing_migration_gives_suggestions_their_author(
             {"id": suggestion},
         ).one()
         assert tuple(kept) == ("coauthor", None, "x:y:z")
+        connection.execute(delete(projects).where(projects.c.id == story.id))
+        connection.execute(delete(subscriptions).where(subscriptions.c.user_id == owner))
+        connection.execute(delete(users).where(users.c.id == owner))
+
+
+def test_suggestion_paragraphs_migration_keeps_suggestions(
+    engine: Engine, alembic_config: Config, billing_alembic_config: Config
+) -> None:
+    """Applied from 0019 on a database with a suggestion of the co-author: it becomes `replace` by its line."""
+    subject = f"test-{uuid.uuid4()}"
+    with engine.begin() as connection:
+        _undo_suggestion_paragraphs(connection)
+        connection.execute(text("UPDATE authorled.alembic_version SET version_num = '0019_story_sharing'"))
+        owner = connection.execute(
+            insert(users)
+            .values(auth_subject=subject, email="suggestion-paragraphs@authorled.test", display_name="Автор")
+            .returning(users.c.id)
+        ).scalar_one()
+        story, _, script = create_project(connection, owner, "Маяк")
+        suggestion = connection.execute(
+            text(
+                "INSERT INTO authorled.suggestions (document_id, scene_uid, quote, text, why, session_id, author_kind) "
+                "VALUES (:script, 's1', 'Вера', 'Аня', '', 'x:y:z', 'coauthor') RETURNING id"
+            ),
+            {"script": script},
+        ).scalar_one()
+    _upgrade(alembic_config, billing_alembic_config)
+    with engine.begin() as connection:
+        kept = connection.execute(
+            text("SELECT place, scene_uid, quote, text, paragraphs FROM authorled.suggestions WHERE id = :id"),
+            {"id": suggestion},
+        ).one()
+        assert tuple(kept) == ("replace", "s1", "Вера", "Аня", None)
         connection.execute(delete(projects).where(projects.c.id == story.id))
         connection.execute(delete(subscriptions).where(subscriptions.c.user_id == owner))
         connection.execute(delete(users).where(users.c.id == owner))

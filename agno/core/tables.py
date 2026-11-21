@@ -357,16 +357,27 @@ SUGGESTION_STATUSES = ("open", "accepted", "rejected")
 
 SUGGESTION_AUTHORS = ("coauthor", "user")
 
-# A suggestion of the co-author or of a participant, anchored by the scene uid and an exact quote; the browser
-# places its mark.
+# Where a suggestion goes (openspec/specs/api/review, «Поля места предложения»): `replace` a quote of a paragraph (by
+# a line, or the whole paragraph by paragraphs), insert `after` the paragraph of a quote, at the `scene_end`, instead
+# of the `scene_body` after its heading, at the `script_start` or the `script_end`.
+SUGGESTION_PLACES = ("replace", "after", "scene_end", "scene_body", "script_start", "script_end")
+SCRIPT_PLACES = ("script_start", "script_end")
+QUOTE_PLACES = ("replace", "after")
+
+# A suggestion of the co-author or of a participant, anchored by its place, the scene uid and an exact quote where the
+# place needs them; a line `text` keeps the type of its paragraph, `paragraphs` carry their types. The browser places
+# the mark of a line; a suggestion of paragraphs has no mark (design of coauthor-typed-suggestions, decision 5).
 suggestions = Table(
     "suggestions",
     metadata,
     Column("id", Uuid, primary_key=True, server_default=text("gen_random_uuid()")),
     Column("document_id", Uuid, ForeignKey(documents.c.id, ondelete="CASCADE"), nullable=False),
-    Column("scene_uid", Text, nullable=False),
-    Column("quote", Text, nullable=False),
-    Column("text", Text, nullable=False),
+    Column("place", Text, nullable=False, server_default="replace"),
+    Column("scene_uid", Text),
+    Column("quote", Text),
+    Column("text", Text),
+    # A list of `{type, text}`, checked by the core (core/review.py) against the paragraph types of the editor.
+    Column("paragraphs", JSONB(none_as_null=True)),
     Column("why", Text, nullable=False),
     Column("status", Text, nullable=False, server_default="open"),
     # The Agno session (conversation) a suggestion of the co-author came from; none for a participant's one.
@@ -378,7 +389,14 @@ suggestions = Table(
     Column("author_id", Uuid, ForeignKey(users.c.id, ondelete="RESTRICT")),
     Column("decided_by", Uuid, ForeignKey(users.c.id, ondelete="RESTRICT")),
     CheckConstraint("scene_uid <> ''", name="scene_uid_not_empty"),
-    CheckConstraint("quote <> ''", name="quote_not_empty"),
+    CheckConstraint(
+        "place IN ('replace', 'after', 'scene_end', 'scene_body', 'script_start', 'script_end')", name="place_known"
+    ),
+    CheckConstraint("(scene_uid IS NULL) = (place IN ('script_start', 'script_end'))", name="scene_of_place"),
+    CheckConstraint("(quote IS NOT NULL AND quote <> '') = (place IN ('replace', 'after'))", name="quote_of_place"),
+    CheckConstraint("(paragraphs IS NULL) = (text IS NOT NULL)", name="text_or_paragraphs"),
+    CheckConstraint("text IS NULL OR place = 'replace'", name="text_of_replace"),
+    CheckConstraint("paragraphs IS NULL OR jsonb_typeof(paragraphs) = 'array'", name="paragraphs_list"),
     CheckConstraint("session_id <> ''", name="session_id_not_empty"),
     CheckConstraint("status IN ('open', 'accepted', 'rejected')", name="status_known"),
     CheckConstraint("(status = 'open') = (decided_at IS NULL)", name="decided_when_closed"),

@@ -81,6 +81,23 @@ def test_suggestions(authors: Any, engine: Engine) -> None:
     assert author.get(f"/api/v1/documents/{script_id}/suggestions?status=maybe").status_code == 422
 
 
+def test_suggestion_fields_by_place(authors: Any, engine: Engine) -> None:
+    """openspec/specs/api/review, «Список предложений»: a line has no paragraphs, the end of the script no scene."""
+    author = authors()
+    script_id = _screenplay(author)
+    lines = [{"type": "sceneHeading", "text": "НАТ. ПРИСТАНЬ — ВЕЧЕР"}, {"type": "action", "text": "Паром уходит."}]
+    with engine.begin() as connection:
+        line = create_suggestion(connection, uuid.UUID(script_id), "s3", "Вера молчит", "Вера плачет", "", "x:1")
+        end = create_suggestion(connection, uuid.UUID(script_id), "", "", "", "", "x:1", "script_end", lines)
+    listed = {s["id"]: s for s in author.get(f"/api/v1/documents/{script_id}/suggestions").json()}
+    first, second = listed[str(line.id)], listed[str(end.id)]
+    assert (first["place"], first["text"], first["paragraphs"]) == ("replace", "Вера плачет", None)
+    assert (second["place"], second["scene_uid"], second["quote"], second["text"]) == ("script_end", None, None, None)
+    assert second["paragraphs"] == lines
+    accepted = author.patch(f"/api/v1/suggestions/{end.id}", json={"status": "accepted"})
+    assert accepted.status_code == 200 and accepted.json()["status"] == "accepted"
+
+
 def test_thread_of_the_coauthor(authors: Any, engine: Engine) -> None:
     author = authors()
     script_id = _screenplay(author)

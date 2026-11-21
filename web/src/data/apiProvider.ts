@@ -8,6 +8,7 @@ import type {
 } from "@refinedev/core";
 
 import type { ScreenplayDoc } from "@/editor/document.ts";
+import { isElementName } from "@/editor/elements.ts";
 
 import {
   apiBlob,
@@ -44,7 +45,9 @@ import type {
   SharedText,
   StoryRole,
   StoryTemplate,
+  SuggestedParagraph,
   Suggestion,
+  SuggestionPlace,
   TitlePage,
   Version,
   VersionContent,
@@ -720,6 +723,29 @@ function toThread(draftId: string, body: unknown): CommentThread {
 }
 
 const STATUSES: readonly string[] = ["open", "accepted", "rejected"];
+const PLACES: readonly string[] = [
+  "replace",
+  "after",
+  "scene_end",
+  "scene_body",
+  "script_start",
+  "script_end",
+];
+
+/** Suggested paragraphs, strictly: an unknown type is an error, never another type. */
+function toParagraphs(value: unknown): SuggestedParagraph[] | null {
+  if (value === null) return null;
+  if (!isArray(value))
+    throw new Error("Сервер вернул абзацы предложения не списком.");
+  return value.map((item, i) => {
+    const what = `абзац ${i + 1} предложения`;
+    const o = shape(what, item);
+    const type = field(what, o, "type", isString);
+    if (!isElementName(type))
+      throw new Error(`Сервер вернул абзац предложения с типом «${type}».`);
+    return { type, text: field(what, o, "text", isString) };
+  });
+}
 
 function toSuggestion(draftId: string, body: unknown): Suggestion {
   const o = shape("предложение соавтора", body);
@@ -727,14 +753,25 @@ function toSuggestion(draftId: string, body: unknown): Suggestion {
   const status = field(what, o, "status", isString);
   if (!STATUSES.includes(status))
     throw new Error(`Сервер вернул предложение со статусом «${status}».`);
+  const place = field(what, o, "place", isString);
+  if (!PLACES.includes(place))
+    throw new Error(`Сервер вернул предложение с местом «${place}».`);
+  const text = field(what, o, "text", isStringOrNull);
+  const paragraphs = toParagraphs(o.paragraphs);
+  if ((text === null) === (paragraphs === null))
+    throw new Error(
+      "Сервер вернул предложение без текста или и с текстом, и с абзацами.",
+    );
   return {
     id: field(what, o, "id", isString),
     draftId,
-    sceneUid: field(what, o, "scene_uid", isString),
-    quote: field(what, o, "quote", isString),
+    place: place as SuggestionPlace,
+    sceneUid: field(what, o, "scene_uid", isStringOrNull),
+    quote: field(what, o, "quote", isStringOrNull),
     at: field(what, o, "created_at", isString),
     why: field(what, o, "why", isString),
-    text: field(what, o, "text", isString),
+    text,
+    paragraphs,
     status: status as Suggestion["status"],
     decidedAt: field(what, o, "decided_at", isTime),
     authorKind: field(

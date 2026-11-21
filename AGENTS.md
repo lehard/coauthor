@@ -129,7 +129,8 @@ workflows in `.agents/skills/`; `.claude/skills` links to that directory.
   `agno/app/settings.py`: application model factories.
 - `agno/app/sandbox.py`: providers, repository URL/branch and checkpoint paths.
 - `agno/agents/`: application agents, including the Claude engineer (Claude Code on DeepSeek) and the co-author
-  with its tools (`coauthor_tools.py`: read and search the story of the conversation, propose an edit of the screenplay, and by
+  with its tools (`coauthor_tools.py`: read and search the story of the conversation, propose an edit of the screenplay (a line in a paragraph or typed
+  paragraphs at a place: after a quote, at the end or instead of the body of a scene, at the start or end of the text), and by
   the author's request change notes (also save a file of the conversation as a note), documents and comments;
   long notes are read in parts of 20 000 characters; in-process functions that call the core; every changing
   call pauses the run until the chat answers it, the author in the co-author mode `ask`, the chat itself in `auto`;
@@ -193,7 +194,8 @@ workflows in `.agents/skills/`; `.claude/skills` links to that directory.
   `web/src/data/`: the data of the screens through Refine — `apiProvider.ts` over `apiClient.ts` (source `api`,
   the routes `/api/v1` of the core with revisions for `If-Match`) or `fixturesProvider.ts` (sample data), chosen by
   `VITE_DATA_SOURCE`. `web/src/editor/`: the screenplay editor; it exports only, the core imports manuscripts;
-  `anchors.ts` places co-author suggestions by scene `uid` and quote. `web/src/editor/prose/`: the prose editor of the
+  `anchors.ts` places co-author suggestions by scene `uid` and quote (a line by its mark, typed paragraphs by
+  their anchor, without a mark). `web/src/editor/prose/`: the prose editor of the
   synopsis (openspec/specs/web/prose-editor): ProseMirror with paragraphs, two levels of headings, bold and italic, kept
   as Markdown in the field `synopsis`; the toolbar, the count of A4 pages, the marks of page starts and the print all
   take one layout (`layout.ts`) in the font Tinos of the build.

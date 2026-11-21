@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Suggestion } from "@/data/model";
+import { ELEMENTS } from "@/editor";
 
 import { commentTime } from "./commentTime";
 import { useCardHeight } from "./cardPlace";
@@ -20,6 +21,60 @@ import { useCardDismiss } from "./useCardDismiss";
 
 // The card of a co-author suggestion and the button that walks through them
 // (coauthor-suggestions, decisions 6 and 7), with the suggestions that have no place in the text.
+
+/**
+ * «Было» and «стало» of a suggestion: a line instead of the old text, or typed paragraphs with
+ * the name of each type (web/workspace, «Карточка предложения абзацами»). `old` is what the text
+ * screen shows: the replaced text, the paragraph or the scene heading an insertion follows.
+ */
+function SuggestedText({
+  suggestion,
+  old,
+}: {
+  suggestion: Suggestion;
+  old: string;
+}) {
+  if (suggestion.paragraphs === null)
+    return (
+      <div className="grid gap-1 font-mono text-[13px] leading-normal">
+        <del className="text-muted-foreground decoration-deco-delete">
+          {old}
+        </del>
+        <ins className="rounded bg-ai-subtle px-1.5 py-0.5 no-underline">
+          {suggestion.text === "" ? "(убрать фрагмент)" : suggestion.text}
+        </ins>
+      </div>
+    );
+  const where = {
+    replace: null,
+    scene_body: null,
+    after: old === "" ? "после абзаца" : `после абзаца «${old}»`,
+    scene_end: old === "" ? "в конце сцены" : `в конце сцены «${old}»`,
+    script_start: "в начале сценария",
+    script_end: "в конце сценария",
+  }[suggestion.place];
+  return (
+    <div className="grid gap-1 font-mono text-[13px] leading-normal">
+      {where === null ? (
+        <del className="whitespace-pre-line text-muted-foreground decoration-deco-delete">
+          {old}
+        </del>
+      ) : (
+        <p className="font-sans text-caption text-muted-foreground">{where}</p>
+      )}
+      <ol className="grid max-h-[50vh] gap-1 overflow-auto rounded bg-ai-subtle px-1.5 py-1">
+        {suggestion.paragraphs.map((p, i) => (
+          <li key={i} className="grid">
+            <span className="font-sans text-caption text-muted-foreground">
+              {ELEMENTS[p.type].label}
+            </span>
+            <span>{p.text}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
 export function SuggestionCard({
   style,
@@ -92,14 +147,7 @@ export function SuggestionCard({
           <X />
         </Button>
       </header>
-      <div className="grid gap-1 font-mono text-[13px] leading-normal">
-        <del className="text-muted-foreground decoration-deco-delete">
-          {old}
-        </del>
-        <ins className="rounded bg-ai-subtle px-1.5 py-0.5 no-underline">
-          {suggestion.text === "" ? "(убрать фрагмент)" : suggestion.text}
-        </ins>
-      </div>
+      <SuggestedText suggestion={suggestion} old={old} />
       <p className="text-caption text-muted-foreground">{suggestion.why}</p>
       {!readOnly && (
         <div className="flex justify-end gap-1.5">
@@ -181,14 +229,7 @@ export function SuggestionsButton({
                 key={m.id}
                 className="grid gap-1.5 rounded-xl bg-paper p-2.5 text-paper-foreground"
               >
-                <div className="grid gap-1 font-mono text-[13px] leading-normal">
-                  <del className="text-muted-foreground decoration-deco-delete">
-                    {m.quote}
-                  </del>
-                  <ins className="rounded bg-ai-subtle px-1.5 py-0.5 no-underline">
-                    {m.text === "" ? "(убрать фрагмент)" : m.text}
-                  </ins>
-                </div>
+                <SuggestedText suggestion={m} old={m.quote ?? ""} />
                 <p className="text-caption text-muted-foreground">{m.why}</p>
                 {!readOnly && (
                   <Button

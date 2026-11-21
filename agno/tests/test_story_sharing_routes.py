@@ -339,6 +339,7 @@ def test_reviewer_suggestion_is_decided_by_the_owner(team: Team) -> None:
     )
     assert made.status_code == 201, made.text
     assert (made.json()["author_kind"], made.json()["author_name"]) == ("user", "Аня")
+    assert (made.json()["place"], made.json()["paragraphs"]) == ("replace", None)
     assert (
         team.reviewer.patch(f"/api/v1/suggestions/{made.json()['id']}", json={"status": "accepted"}).status_code == 403
     )

@@ -264,7 +264,22 @@
   border-radius: 2px;
   cursor: pointer;
 }
+/* Suggested paragraphs at their place, in the look of their types (coauthor-typed-suggestions). */
+.pw-suggestion-block {
+  user-select: none;
+  background: var(--ai-subtle);
+  box-shadow: inset 2px 0 0 var(--ai);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.pw-suggestion-block > p {
+  text-decoration: underline;
+  text-decoration-color: var(--ai);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
 .pw-suggestion-del.pw-suggestion-active,
+.pw-suggestion-block.pw-suggestion-active,
 .pw-suggestion-ins.pw-suggestion-active {
   background: var(--ai-subtle);
   outline: 1px solid var(--ai-border);

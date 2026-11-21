@@ -5,11 +5,13 @@ it once; a run without it stops before any model call and names the command.
 """
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 import billing
+from core import texts
 from core.documents import draft_row
+from core.drafts import create_draft
 from core.engine import get_engine
 from core.projects import list_projects, user_id_of
 from core.users import AccountNotFound, get_or_create_user
@@ -107,3 +109,16 @@ def places(user: EvalUser) -> dict[str, Place]:
             draft = draft_row(connection, story.open_draft_id)
             found[place] = Place(title, story.description, story.id, draft.id, draft.name)
     return found
+
+
+def fresh_draft(place: Place, label: str, empty_text: bool, owner: uuid.UUID) -> Place:
+    """A copy of the open draft for one request of the measurement of actions; the place now names the copy. With
+    `empty_text` the copy's screenplay is the text of a new story (spec «Набор просьб замера действий»)."""
+    name = f"{label} {datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    with get_engine().begin() as connection:
+        draft = create_draft(connection, place.project_id, name, place.draft_id, owner)
+        if empty_text:
+            screenplay = texts.screenplay_id(connection, draft.id)
+            revision = texts.get_text(connection, screenplay).revision
+            texts.put_text(connection, screenplay, revision, texts.new_screenplay(), owner)
+    return replace(place, draft_id=draft.id, draft_name=draft.name)
