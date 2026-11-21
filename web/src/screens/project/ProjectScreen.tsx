@@ -248,6 +248,7 @@ export function ProjectScreen() {
     currentScene,
     setCurrentScene,
     openChat,
+    clearChatSelection: clearSelection,
     askCoauthor: (text, mode) => {
       if (coauthorBusy)
         throw new Error("Соавтор ещё отвечает: новая просьба не отправлена.");

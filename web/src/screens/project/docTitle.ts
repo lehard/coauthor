@@ -15,6 +15,7 @@ export function docTitle(
     | "setText"
     | "textStatus"
     | "openChat"
+    | "clearChatSelection"
     | "askCoauthor"
     | "coauthorBusy"
     | "openFresh"

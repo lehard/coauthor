@@ -4,7 +4,12 @@ import { baseKeymap } from "prosemirror-commands";
 import { history, redo, redoDepth, undo, undoDepth } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import type { Node } from "prosemirror-model";
-import { EditorState, TextSelection, type Plugin } from "prosemirror-state";
+import {
+  EditorState,
+  Selection,
+  TextSelection,
+  type Plugin,
+} from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 
 import {
@@ -705,12 +710,20 @@ export class ScreenplayEditorView {
             to: place.from - 1,
           };
       }
-      if (range !== null)
-        this.view.dispatch(
-          state.tr.setSelection(
-            TextSelection.create(state.doc, range.from, range.to),
-          ),
-        );
+      const block = suggestionsKey.getState(state)?.blocks.get(id);
+      if (block === undefined) throw new Error(`Нет предложения ${id}`);
+      // The start and the end of the screenplay select nothing: a caret there, so an old selection of the
+      // text does not come back to the chat (design of chat-discuss-script-edge, decision 2).
+      const selection =
+        block.place === "script_start"
+          ? Selection.atStart(state.doc)
+          : block.place === "script_end"
+            ? Selection.atEnd(state.doc)
+            : range === null
+              ? null
+              : TextSelection.create(state.doc, range.from, range.to);
+      if (selection !== null)
+        this.view.dispatch(state.tr.setSelection(selection));
       this.view.focus();
       return true;
     }

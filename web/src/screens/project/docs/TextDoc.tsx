@@ -53,6 +53,7 @@ export function TextDoc({ mode }: { mode: EditorMode }) {
     textStatus,
     setCurrentScene,
     openChat,
+    clearChatSelection,
     readOnly,
     can,
   } = data;
@@ -75,7 +76,7 @@ export function TextDoc({ mode }: { mode: EditorMode }) {
     draft.id,
     editor,
     () => comments.close(),
-    can.review ? openChat : null,
+    can.review ? { open: openChat, clear: clearChatSelection } : null,
     readOnly,
     !draft.locked,
   );
