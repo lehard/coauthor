@@ -5,14 +5,13 @@ import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 
 import { useProjectData } from "../ProjectContext";
-import { docPath } from "../docRef";
 import {
   ALLOW,
   DENY,
   decisionOf,
   describeAction,
   parseArgs,
-  targetRef,
+  targetPath,
   toolMessages,
   type ToolName,
 } from "./actions";
@@ -64,7 +63,7 @@ export function Outcome({
   return (
     <Line tone="done">
       <Link
-        to={docPath(data.draft, targetRef(outcome.target))}
+        to={targetPath(data.draft, outcome.target)}
         className="text-foreground underline underline-offset-2 hover:text-ai"
       >
         {outcome.done}

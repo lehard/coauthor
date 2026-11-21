@@ -13,6 +13,8 @@ CHANGING = frozenset(
     {
         "create_story_note",
         "save_chat_file_to_notes",
+        "import_chat_file_as_draft",
+        "create_story_from_chat_file",
         "update_story_note",
         "create_story_document",
         "update_story_document",

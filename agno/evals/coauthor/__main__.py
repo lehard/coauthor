@@ -442,6 +442,8 @@ async def _actions_run(arguments: argparse.Namespace) -> int:
                 "missing": v.missing,
                 "summary_dump": v.summary_dump,
                 "extra": v.extra,
+                "placement": v.placement,
+                "imported": v.imported,
                 "passed": v.passed,
             }
             for v in verdicts

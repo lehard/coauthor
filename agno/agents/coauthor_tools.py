@@ -28,17 +28,21 @@ from agents import web_search as yandex
 from app.auth import can_access_project, run_principal
 from app.settings import embedder, embeddings_model
 from core import documents as docs
-from core import members, notes, review, search, sources, story_templates, texts
+from core import imports, members, notes, review, search, sources, story_templates, texts
 from core.engine import get_engine
-from core.errors import Conflict, Invalid, Locked, NotFound, TooLarge
+from core.errors import Conflict, Invalid, Locked, NotFound, ScannerUnavailable, TooLarge
 from core.fields import FIELD_HINTS, Role, field_guide
+from core.files import ALLOWED, StoredFile, get_file
 from core.files import file_text as stored_file_text
-from core.files import get_file
+from core.importers.starc import Skipped
 from core.users import active_user_id
 
 log = logging.getLogger(__name__)
 
 STORY_NOT_FOUND = "Отказ: история не найдена."
+CHAT_FILE_NOT_FOUND = "Отказ: файл не найден в этой беседе."
+# Formats the import parses (core/files.py, ALLOWED["import"]).
+IMPORT_EXTENSIONS = tuple(ALLOWED["import"])
 SOURCES_FAILED = "Отказ: поиск по библиотеке не удался; не ссылайся на книги библиотеки в этом ответе."
 WEB_SEARCH_FAILED = (
     "Отказ: поиск в интернете не удался. Скажи автору, что поиск сейчас недоступен; сведения по памяти давай только "
@@ -89,7 +93,7 @@ def _answer(work: Callable[[], Any]) -> str:
         result = work()
     except Refusal as refusal:
         return str(refusal)
-    except (NotFound, Invalid, Conflict, Locked, TooLarge) as error:
+    except (NotFound, Invalid, Conflict, Locked, TooLarge, ScannerUnavailable) as error:
         return f"Отказ: {error}"
     return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str)
 
@@ -335,15 +339,60 @@ def read_chat_file(run_context: RunContext, file_id: str) -> str:
 
     def work() -> Any:
         project_id = _draft(run_context, "read").project_id
-        try:
-            found = uuid.UUID(file_id)
-        except ValueError as error:
-            raise Refusal("Отказ: файл не найден в этой беседе.") from error
         with get_engine().connect() as connection:
-            stored = get_file(connection, found)
-            if stored.project_id != project_id or stored.session_id != run_context.session_id:
-                raise Refusal("Отказ: файл не найден в этой беседе.")
-            return f"Файл «{stored.name}»:\n{stored_file_text(connection, found)}"
+            stored = _chat_file(connection, run_context, project_id, file_id)
+            return f"Файл «{stored.name}»:\n{stored_file_text(connection, stored.id)}"
+
+    return _answer(work)
+
+
+def _chat_file(connection: Any, run_context: RunContext, project_id: uuid.UUID, file_id: str) -> StoredFile:
+    """A file attached to this conversation; any other file is «not found» for the co-author."""
+    try:
+        stored = get_file(connection, uuid.UUID(file_id))
+    except (ValueError, NotFound) as error:
+        raise Refusal(CHAT_FILE_NOT_FOUND) from error
+    if stored.project_id != project_id or stored.session_id != run_context.session_id:
+        raise Refusal(CHAT_FILE_NOT_FOUND)
+    return stored
+
+
+SCENES_ONLY_IMPORT = (
+    "Отказ: сцены с типами абзацев есть только у файлов Fountain, Final Draft, STARC, DOCX и TXT; "
+    "файл «{name}» читается только текстом (read_chat_file)."
+)
+
+
+def read_chat_file_scenes(run_context: RunContext, file_id: str, scene: int = 0) -> str:
+    """Сцены файла сценария, который автор прикрепил к этой беседе, с типами абзацев — так, как их разберёт импорт.
+
+    scene 0 — список сцен (номер, заголовок, число абзацев); номер сцены — её абзацы {"type", "text"} по порядку,
+    первым — заголовок сцены. Перенос строки внутри абзаца — «\\n», как в файле. Чтобы вставить сцену или кусок файла
+    в текст, передай эти абзацы в suggest_edit как есть, не переписывая и не меняя типы. Текст вне сцен (до первого
+    заголовка, акты и группы сцен) здесь не читается: для него read_chat_file. PDF и Markdown сцен не имеют:
+    их читай read_chat_file.
+
+    Args:
+        file_id: id файла из сообщения автора.
+        scene: номер сцены с 1; 0 — список сцен.
+    """
+
+    def work() -> Any:
+        project_id = _draft(run_context, "read").project_id
+        with get_engine().connect() as connection:
+            stored = _chat_file(connection, run_context, project_id, file_id)
+            if not stored.name.lower().endswith(IMPORT_EXTENSIONS):
+                raise Refusal(SCENES_ONLY_IMPORT.format(name=stored.name))
+            name, found = imports.chat_file_scenes(connection, project_id, stored.id)
+        if scene == 0:
+            return {
+                "file": name,
+                "scenes": [{"number": s.number, "heading": s.heading, "paragraphs": len(s.paragraphs)} for s in found],
+            }
+        if not 1 <= scene <= len(found):
+            raise Refusal(f"Отказ: в файле «{name}» сцен {len(found)}, сцены {scene} нет.")
+        chosen = found[scene - 1]
+        return {"file": name, "scene": chosen.number, "paragraphs": chosen.paragraphs}
 
     return _answer(work)
 
@@ -405,7 +454,8 @@ def suggest_edit(
         text: строка вместо цитаты у replace без абзацев; пусто — убрать цитату; при абзацах пусто.
         why: коротко, зачем эта правка.
         place: место предложения, по умолчанию replace.
-        paragraphs: абзацы по порядку, каждый {"type": тип из списка, "text": текст без переноса строки}.
+        paragraphs: абзацы по порядку, каждый {"type": тип из списка, "text": текст}; перенос строки внутри
+            абзаца — «\\n» (реплика в две строки из файла), новая строка другого типа — отдельный абзац.
     """
 
     def work() -> Any:
@@ -559,6 +609,64 @@ def save_chat_file_to_notes(run_context: RunContext, file_id: str) -> str:
         with get_engine().begin() as connection:
             note = notes.create_note_from_chat_file(connection, found, user, place)
         return _done(f"Файл сохранён в заметку «{note.title}»", "note", note.id)
+
+    return _answer(work)
+
+
+SKIPPED_KINDS = {"screenplay": "сценарий", "character": "персонаж", "location": "локация"}
+
+
+def _with_skipped(done: str, skipped: list[Skipped]) -> str:
+    """What the import of a STARC file did not carry: the records whose documents are not in the file."""
+    if not skipped:
+        return done
+    return f"{done}; в файле нет и не перенесены: " + ", ".join(
+        f"{SKIPPED_KINDS[record.kind]} «{record.name}»" for record in skipped
+    )
+
+
+def import_chat_file_as_draft(run_context: RunContext, file_id: str, name: str) -> str:
+    """Импортировать файл сценария, который автор прикрепил к этой беседе, в НОВЫЙ драфт этой истории: копия драфта
+    беседы, текст сценария которой — файл, разобранный как кнопкой «Импорт», с недостающими персонажами и локациями.
+    Драфт беседы не меняется. По просьбе автора «импортируй», «загрузи как сценарий». Импорт разбирает только
+    Fountain, Final Draft, STARC, DOCX и TXT.
+
+    Args:
+        file_id: id файла из сообщения автора.
+        name: имя нового драфта: имя файла без расширения, если автор не назвал другое.
+    """
+
+    def work() -> Any:
+        draft = _draft(run_context, "edit")
+        with get_engine().begin() as connection:
+            stored = _chat_file(connection, run_context, draft.project_id, file_id)
+            made = imports.create_draft_from_chat_file(
+                connection, draft.id, stored.id, name, _caller(connection, run_context)
+            )
+        done = _with_skipped(f"Создан драфт «{made.draft.name}» из файла «{stored.name}»", made.skipped)
+        return _done(done, "draft", made.draft.id, project=str(draft.project_id))
+
+    return _answer(work)
+
+
+def create_story_from_chat_file(run_context: RunContext, file_id: str, title: str) -> str:
+    """Создать НОВУЮ историю автора из файла сценария, который он прикрепил к этой беседе, как «Новая история из
+    файла». Только по прямой просьбе сделать из файла новую историю; на «импортируй» — import_chat_file_as_draft.
+
+    Args:
+        file_id: id файла из сообщения автора.
+        title: название истории: имя файла без расширения, если автор не назвал другое.
+    """
+
+    def work() -> Any:
+        draft = _draft(run_context, "edit")
+        with get_engine().begin() as connection:
+            stored = _chat_file(connection, run_context, draft.project_id, file_id)
+            project, draft_id, skipped = imports.create_project_from_chat_file(
+                connection, draft.project_id, stored.id, _caller(connection, run_context), title
+            )
+        done = _with_skipped(f"Создана история «{project.title}» из файла «{stored.name}»", skipped)
+        return _done(done, "project", project.id, draft=str(draft_id))
 
     return _answer(work)
 
@@ -750,6 +858,7 @@ READING_TOOLS: list[Callable[..., str]] = [
     read_screenplay,
     search_story,
     read_chat_file,
+    read_chat_file_scenes,
     list_story_notes,
     read_story_note,
     list_story_templates,
@@ -764,6 +873,8 @@ READING_TOOLS: list[Callable[..., str]] = [
 CHANGING_TOOLS: list[Callable[..., str]] = [
     create_story_note,
     save_chat_file_to_notes,
+    import_chat_file_as_draft,
+    create_story_from_chat_file,
     update_story_note,
     create_story_document,
     update_story_document,

@@ -12,17 +12,24 @@ from pathlib import Path
 from typing import Any, Literal, get_args, get_origin
 
 from core.fields import FIELDS, KINDS_WITH_ROLE, SCRIPT_NAME, Role
+from core.files import ALLOWED
+from core.imports import parse_manuscript
 from core.tables import SUGGESTION_PLACES
-from core.texts import ELEMENT_NAMES
+from core.texts import ELEMENT_NAMES, block_text, scenes
 from evals.coauthor.demo_set import demo_stories
 from evals.coauthor.records import CHANGING, Call, Usage
 from evals.coauthor.user import PLACES
 
 SET_FILE = Path(__file__).parent / "actions.toml"
+# Files a request attaches to its message, as the chat does (spec «Набор просьб замера действий»).
+FILES_DIR = Path(__file__).parent / "files"
 NO_ACTION = "none"
-# Changing tools that need a file attached to the message: the measurement sends text only, so the set does not ask
-# for them (spec «Набор просьб замера действий»); called anyway, they are a change nobody asked for.
-NEEDS_FILE = frozenset({"save_chat_file_to_notes"})
+# Changing tools the set does not ask for (spec «Набор просьб замера действий»): a note from a file and a new story
+# from a file; called anyway, they are a change nobody asked for.
+NEEDS_FILE = frozenset({"save_chat_file_to_notes", "create_story_from_chat_file"})
+IMPORT = "import_chat_file_as_draft"
+# A file of a request may come with these: an import needs one, a suggestion or no action may have one.
+FILE_TOOLS = (IMPORT, "suggest_edit", NO_ACTION)
 # The tools the set asks for: every changing tool but those of NEEDS_FILE. A suggestion of an edit is checked by its
 # place and the types of its paragraphs (design of coauthor-typed-suggestions, decision 9); one nobody asked for is a
 # change nobody asked for.
@@ -52,6 +59,8 @@ _KEYS = {
     "suggest_place",
     "types",
     "empty_text",
+    "file",
+    "file_scene",
 }
 # The requests whose written text may have a limit of words: the expected fields of the document, the text of the note.
 LIMITED_TOOLS = ("update_story_document", "create_story_note")
@@ -76,6 +85,8 @@ class Request:
     suggest_places: tuple[str, ...] = ()  # the places a suggestion may have; one is enough
     types: tuple[str, ...] = ()  # paragraph types the suggestion must have in this order, others between allowed
     empty_text: bool = False  # the screenplay of the request's draft is the text of a new story
+    file: str | None = None  # a file of FILES_DIR attached to the message
+    file_scene: int | None = None  # the scene of the file whose paragraphs the suggestion must have as they are
 
     @property
     def section(self) -> str:
@@ -138,7 +149,9 @@ def parse_request(row: Any, cards: dict[str, dict[str, str]], notes: dict[str, f
     if expect in LIMITED_TOOLS:
         allowed.add("max_words")
     if expect == SUGGEST:
-        allowed |= {"suggest_place", "types", "empty_text"}
+        allowed |= {"suggest_place", "types", "empty_text", "file_scene"}
+    if expect in FILE_TOOLS:
+        allowed.add("file")
     extra = set(row) - allowed
     if extra:
         raise ActionSetError(f"{request_id}: {', '.join(sorted(extra))} do not belong to a request for {expect}")
@@ -188,6 +201,23 @@ def parse_request(row: Any, cards: dict[str, dict[str, str]], notes: dict[str, f
         empty_text = row.get("empty_text", False)
         if not isinstance(empty_text, bool):
             raise ActionSetError(f"{request_id}: empty_text must be true or false")
+    file = None if row.get("file") is None else _string(f"{request_id}: file", row.get("file"))
+    if expect == IMPORT and file is None:
+        raise ActionSetError(f"{request_id}: a request to import a file needs a file")
+    if file is not None:
+        if not (FILES_DIR / file).is_file():
+            raise ActionSetError(f"{request_id}: file {file!r} is not in {FILES_DIR.name}/")
+        if expect == IMPORT and Path(file).suffix.lower() not in ALLOWED["import"]:
+            raise ActionSetError(f"{request_id}: file {file!r} is not of a format of import")
+    file_scene = row.get("file_scene")
+    if file_scene is not None:
+        if file is None:
+            raise ActionSetError(f"{request_id}: file_scene needs a file")
+        if not isinstance(file_scene, int) or isinstance(file_scene, bool):
+            raise ActionSetError(f"{request_id}: file_scene must be a whole number")
+        count = len(scenes(_manuscript(file)))
+        if not 1 <= file_scene <= count:
+            raise ActionSetError(f"{request_id}: file {file!r} has {count} scenes, not scene {file_scene}")
     return Request(
         request_id,
         place,
@@ -202,7 +232,34 @@ def parse_request(row: Any, cards: dict[str, dict[str, str]], notes: dict[str, f
         places,
         types,
         empty_text,
+        file,
+        file_scene,
     )
+
+
+def _manuscript(file: str) -> dict[str, Any]:
+    """The screenplay the import makes of a file of the set."""
+    path = FILES_DIR / file
+    return parse_manuscript(path.suffix.lower(), path.read_bytes()).doc
+
+
+Paragraphs = tuple[tuple[str, str], ...]
+
+
+def paragraphs_of(doc: dict[str, Any]) -> Paragraphs:
+    """The type and the text of every paragraph of a screenplay."""
+    return tuple((block["type"], block_text(block)) for block in doc["content"])
+
+
+def expected_paragraphs(request: Request) -> Paragraphs:
+    """What the import of the request's file gives: the whole screenplay, or the scene of `file_scene`."""
+    if request.file is None:
+        raise ValueError(f"{request.id}: the request has no file")
+    doc = _manuscript(request.file)
+    if request.file_scene is None:
+        return paragraphs_of(doc)
+    scene = scenes(doc)[request.file_scene - 1]
+    return tuple((block["type"], block_text(block)) for block in scene.blocks)
 
 
 def parse_set(rows: Any) -> list[Request]:
@@ -252,6 +309,15 @@ class Suggested:
 
     place: str
     types: tuple[str, ...]
+    paragraphs: Paragraphs = ()  # the type and the text of each paragraph
+
+
+@dataclass(frozen=True)
+class NewDraft:
+    """A draft of the story the request created: its name and its screenplay."""
+
+    name: str
+    paragraphs: Paragraphs
 
 
 @dataclass(frozen=True)
@@ -267,6 +333,8 @@ class Changes:
     suggestions: int = 0
     suggested: tuple[Suggested, ...] = ()  # the new suggestions, in the order of their creation
     open_draft: tuple[str, ...] = ()  # documents of the story's open draft that changed: never expected
+    drafts: tuple[NewDraft, ...] = ()  # new drafts of the story
+    text_changed: bool = False  # the screenplay of the request's draft changed: never expected
 
 
 @dataclass(frozen=True)
@@ -294,6 +362,7 @@ class Verdict:
     extra: tuple[str, ...]  # changes nobody asked for
     too_long: tuple[str, ...]  # written texts over the request's max_words: "what: N слов, предел M"
     placement: tuple[str, ...] = ()  # a suggestion not at an expected place or without the expected types
+    imported: tuple[str, ...] = ()  # a new draft or suggested paragraphs that differ from the file
 
     @property
     def fields_expected(self) -> bool:
@@ -309,6 +378,7 @@ class Verdict:
             and not self.extra
             and not self.too_long
             and not self.placement
+            and not self.imported
         )
 
 
@@ -341,6 +411,10 @@ def _extra(request: Request, changes: Changes) -> list[str]:
     if suggestions > 0:
         extra.append(f"предложений правки: {changes.suggestions}")
     extra += [f"изменён открытый драфт: «{name}»" for name in changes.open_draft]
+    drafts = changes.drafts[1:] if request.expect == IMPORT else changes.drafts
+    extra += [f"создан драфт «{made.name}»" for made in drafts]
+    if changes.text_changed:
+        extra.append("изменён текст сценария драфта просьбы")
     return extra
 
 
@@ -392,6 +466,29 @@ def _placement(request: Request, changes: Changes) -> list[str]:
     return issues
 
 
+def _first_difference(expected: Paragraphs, got: Paragraphs) -> str:
+    for number, (want, have) in enumerate(zip(expected, got, strict=False), 1):
+        if want != have:
+            return f"абзац {number}: ожидался {want!r}, получен {have!r}"
+    return f"абзацев {len(got)} вместо {len(expected)}"
+
+
+def _imported(request: Request, changes: Changes) -> list[str]:
+    """The new draft of an import has the screenplay of the file; the suggestion of `file_scene` has its paragraphs
+    as they are (spec «Проверки замера действий»)."""
+    if request.expect == IMPORT:
+        if not changes.drafts:
+            return ["нового драфта нет"]
+        expected = expected_paragraphs(request)
+        got = changes.drafts[0].paragraphs
+        return [] if got == expected else [f"драфт «{changes.drafts[0].name}»: {_first_difference(expected, got)}"]
+    if request.file_scene is not None and len(changes.suggested) == 1:
+        expected = expected_paragraphs(request)
+        got = changes.suggested[0].paragraphs
+        return [] if got == expected else [f"предложение: {_first_difference(expected, got)}"]
+    return []
+
+
 def check(request: Request, run: ActionRun) -> Verdict:
     """The checks of one request by code (spec «Проверки замера действий», «Сведения профиля не в описании»)."""
     changing = [call for call in run.calls if call.name in CHANGING]
@@ -417,8 +514,19 @@ def check(request: Request, run: ActionRun) -> Verdict:
     if run.outcome == "error":
         action_ok = False
     placement = tuple(_placement(request, run.changes))
+    imported = tuple(_imported(request, run.changes))
     return Verdict(
-        request, run, refusals, attempts, action_ok, tuple(missing), dump, tuple(extra), tuple(too_long), placement
+        request,
+        run,
+        refusals,
+        attempts,
+        action_ok,
+        tuple(missing),
+        dump,
+        tuple(extra),
+        tuple(too_long),
+        placement,
+        imported,
     )
 
 
@@ -516,6 +624,8 @@ def _failure(verdict: Verdict) -> list[str]:
         lines.append(f"Длиннее предела: {'; '.join(verdict.too_long)}.")
     if verdict.placement:
         lines.append(f"Предложение: {'; '.join(verdict.placement)}.")
+    if verdict.imported:
+        lines.append(f"Не как в файле: {'; '.join(verdict.imported)}.")
     lines += ["", f"**Соавтор:** {run.answer}", ""]
     return lines
 

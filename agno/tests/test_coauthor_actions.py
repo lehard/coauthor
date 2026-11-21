@@ -12,9 +12,11 @@ from evals.coauthor.actions import (
     ActionSetError,
     Card,
     Changes,
+    NewDraft,
     Request,
     Suggested,
     check,
+    expected_paragraphs,
     load_set,
     parse_set,
     summarize,
@@ -293,3 +295,61 @@ def test_suggestion_nobody_asked_for() -> None:
     (request,) = parse_set([_row()])
     run = ActionRun("r1", "done", "", 1.0, (), Changes(suggestions=1, suggested=(Suggested("after", ()),)))
     assert "предложений правки: 1" in check(request, run).extra
+
+
+# --- a file attached to the message (spec «Набор просьб замера действий», «Проверки замера действий»)
+
+FILE = "Мостки.fountain"
+
+
+def _import(**own: Any) -> dict[str, Any]:
+    return _row(expect="import_chat_file_as_draft", kind=None, fields=None, file=FILE) | own
+
+
+@pytest.mark.parametrize(
+    ("row", "reason"),
+    [
+        (_import(file="Нет.fountain"), "r1: file 'Нет.fountain' is not in files/"),
+        (_import(file=None), "r1: a request to import a file needs a file"),
+        (_import(expect="create_story_from_chat_file"), "r1: tool 'create_story_from_chat_file' is not a changing"),
+        (_suggest(file=FILE, file_scene=4), "r1: file 'Мостки.fountain' has 3 scenes, not scene 4"),
+        (_suggest(file_scene=2), "r1: file_scene needs a file"),
+        (_row(file=FILE), "r1: file do not belong"),
+    ],
+)
+def test_file_request_refused(row: dict[str, Any], reason: str) -> None:
+    with pytest.raises(ActionSetError, match=reason):
+        parse_set([row])
+
+
+def _import_call() -> Call:
+    return Call("import_chat_file_as_draft", {}, False, json.dumps({"done": "Создан драфт", "target": {}}))
+
+
+def test_import_into_a_new_draft() -> None:
+    (request,) = parse_set([_import()])
+    made = NewDraft("Мостки", expected_paragraphs(request))
+    verdict = check(request, ActionRun("r1", "done", "Готово", 1.0, (_import_call(),), Changes(drafts=(made,))))
+    assert verdict.passed and not verdict.extra and not verdict.imported
+
+
+def test_import_that_changed_the_draft_of_the_request() -> None:
+    (request,) = parse_set([_import()])
+    made = NewDraft("Мостки", expected_paragraphs(request))
+    changes = Changes(drafts=(made, made), text_changed=True)
+    verdict = check(request, ActionRun("r1", "done", "Готово", 1.0, (_import_call(),), changes))
+    assert verdict.extra == ("создан драфт «Мостки»", "изменён текст сценария драфта просьбы")
+
+
+def test_a_scene_of_the_file_retold_fails() -> None:
+    (request,) = parse_set([_suggest(suggest_place="scene_end", types=[], file=FILE, file_scene=2)])
+    expected = expected_paragraphs(request)
+    assert ("dialogue", "Он тоже так сидел.\nКаждое утро.") in expected
+    retold = tuple((kind, text.replace("\n", " ")) for kind, text in expected)
+    made = Suggested("scene_end", tuple(kind for kind, _ in retold), retold)
+    verdict = check(request, _suggest_run(made))
+    assert not verdict.passed
+    (issue,) = verdict.imported
+    assert issue.startswith("предложение: абзац ") and "Он тоже так сидел. Каждое утро." in issue
+    exact = Suggested("scene_end", tuple(kind for kind, _ in expected), expected)
+    assert check(request, _suggest_run(exact)).passed

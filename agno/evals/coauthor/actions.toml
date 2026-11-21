@@ -12,7 +12,11 @@
 # - for update_story_document and create_story_note: optional `max_words`, the limit of words of the written text;
 # - for suggest_edit: `suggest_place`, the place of the suggestion ("a|b" means one of them is enough), optional
 #   `types`, paragraph types the suggestion must have in this order (others between them allowed), and optional
-#   `empty_text = true`: the screenplay of the request's draft is the empty text of a new story.
+#   `empty_text = true`: the screenplay of the request's draft is the empty text of a new story;
+# - `file`: a file of evals/coauthor/files/ attached to the message as the chat attaches it; required for
+#   import_chat_file_as_draft (a format of import), allowed for suggest_edit and "none";
+# - for suggest_edit with a file: optional `file_scene`, the scene of the file whose paragraphs the suggestion must
+#   have as the import gives them (types, text and line breaks).
 # The set is checked against core/fields.py and the demo stories before any model call (evals/coauthor/actions.py).
 
 # --- Персонажи ---
@@ -638,3 +642,28 @@ place = "tihaya-voda"
 message = "В реплике дяди Коли на пристани поправь «Выросла.» на «Выросла-то как.»"
 expect = "suggest_edit"
 suggest_place = "replace"
+
+# --- Файл в сообщении ---
+
+[[request]]
+id = "file-import-draft"
+place = "tihaya-voda"
+message = "Импортируй этот файл, это моя новая версия сцен."
+expect = "import_chat_file_as_draft"
+file = "Мостки.fountain"
+
+[[request]]
+id = "file-insert-scene"
+place = "tihaya-voda"
+message = "Вставь вторую сцену из этого файла, про мостки на рассвете, в конец сцены в гараже дяди Коли."
+expect = "suggest_edit"
+file = "Мостки.fountain"
+suggest_place = "scene_end|after"
+file_scene = 2
+
+[[request]]
+id = "file-what-is-inside"
+place = "tihaya-voda"
+message = "Что в этом файле? Коротко."
+expect = "none"
+file = "Мостки.fountain"

@@ -4,6 +4,7 @@
 // valid JSON through and wraps a plain string with `json.dumps`, escaping non-ASCII. Check them
 // again when Agno is upgraded.
 import {
+  outsidePath,
   readOutcome,
   type Outcome,
 } from "../src/screens/project/chat/outcome.ts";
@@ -43,6 +44,35 @@ const SAMPLES: [name: string, content: string, expected: Outcome][] = [
     { kind: "unreadable" },
   ],
   ["not JSON", "не JSON", { kind: "unreadable" }],
+  [
+    // A file of the conversation imported into a new draft (api/agents, «Новый драфт из файла беседы»).
+    "new draft",
+    '{"done": "Создан драфт «Паром» из файла «Паром.fountain»", "target": {"type": "draft", "id": "d2", "project": "p1"}}',
+    {
+      kind: "done",
+      done: "Создан драфт «Паром» из файла «Паром.fountain»",
+      target: { type: "draft", id: "d2", project: "p1" },
+    },
+  ],
+  [
+    "new story",
+    '{"done": "Создана история «Паром 2» из файла «Паром.fountain»", "target": {"type": "project", "id": "p2", "draft": "d9"}}',
+    {
+      kind: "done",
+      done: "Создана история «Паром 2» из файла «Паром.fountain»",
+      target: { type: "project", id: "p2", draft: "d9" },
+    },
+  ],
+  [
+    "new draft without its story",
+    '{"done": "Создан драфт «Паром»", "target": {"type": "draft", "id": "d2"}}',
+    { kind: "unreadable" },
+  ],
+  [
+    "new story without its draft",
+    '{"done": "Создана история «Паром 2»", "target": {"type": "project", "id": "p2"}}',
+    { kind: "unreadable" },
+  ],
 ];
 
 const problems: string[] = [];
@@ -51,6 +81,24 @@ for (const [name, content, expected] of SAMPLES) {
   if (JSON.stringify(got) !== JSON.stringify(expected))
     problems.push(
       `${name}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(got)}`,
+    );
+}
+
+// Where the line of a done call leads when it is outside the draft of the conversation.
+const PATHS: [
+  name: string,
+  target: Parameters<typeof outsidePath>[0],
+  expected: string | null,
+][] = [
+  ["new draft", { type: "draft", id: "d2", project: "p1" }, "/p/p1/d/d2/text"],
+  ["new story", { type: "project", id: "p2", draft: "d9" }, "/p/p2/d/d9/text"],
+  ["note", { type: "note", id: "n1" }, null],
+];
+for (const [name, target, expected] of PATHS) {
+  const got = outsidePath(target);
+  if (got !== expected)
+    problems.push(
+      `path of ${name}: expected ${String(expected)}, got ${String(got)}`,
     );
 }
 
